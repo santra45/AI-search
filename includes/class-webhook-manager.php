@@ -259,10 +259,16 @@ class SSW_Webhook_Manager {
     // ── License Key → Client ID ────────────────────────────────────────────────
 
     private function get_client_id(): ?string {
-        $response = wp_remote_get(
-            $this->api_url . '/api/status?license_key=' . urlencode($this->license_key),
-            ['timeout' => 8]
+        $url      = $this->api_url . '/api/status?license_key=' . urlencode($this->license_key);
+        $is_local = in_array(
+            parse_url($url, PHP_URL_HOST),
+            ['localhost', '127.0.0.1', '::1']
         );
+
+        $response = wp_remote_get($url, [
+            'timeout'   => 8,
+            'sslverify' => !$is_local
+        ]);
 
         if (is_wp_error($response)) return null;
 
@@ -278,21 +284,26 @@ class SSW_Webhook_Manager {
     // ── WooCommerce API Helper ─────────────────────────────────────────────────
 
     private function wc_request(string $method, string $endpoint, array $data = []) {
-        // Require WC credentials — no silent fallback
         if (empty($this->wc_key) || empty($this->wc_secret)) {
             return new WP_Error(
                 'ssw_missing_credentials',
-                'WooCommerce Consumer Key and Secret are required. ' .
-                'Add them in Semantic Search → Settings.'
+                'WooCommerce Consumer Key and Secret are required.'
             );
         }
 
         $url = $this->wc_url . '/wp-json/wc/v3/' . $endpoint;
 
+        // Disable SSL verification on localhost only
+        $is_local = in_array(
+            parse_url($url, PHP_URL_HOST),
+            ['localhost', '127.0.0.1', '::1']
+        );
+
         $args = [
-            'method'  => $method,
-            'timeout' => 15,
-            'headers' => [
+            'method'    => $method,
+            'timeout'   => 15,
+            'sslverify' => !$is_local,   // ← false on localhost, true on production
+            'headers'   => [
                 'Content-Type'  => 'application/json',
                 'Authorization' => 'Basic ' . base64_encode(
                     $this->wc_key . ':' . $this->wc_secret

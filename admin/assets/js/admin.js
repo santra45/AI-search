@@ -427,8 +427,6 @@
             showInlineResult($result, '⏳ Registering webhooks...', 'success');
 
             ajax('ssw_register_webhooks').done(res => {
-                // Log full response so we can see what's happening
-                console.log('Webhook registration response:', res);
 
                 if (res.success) {
                     showInlineResult(
@@ -438,15 +436,13 @@
                     );
                     SSW_Status.load();
                 } else {
-                    console.error('Webhook failed:', res.data);
                     showInlineResult(
                         $result,
                         '❌ ' + res.data.message,
                         'error'
                     );
                 }
-            }).fail(function(xhr) {
-                console.error('AJAX failed:', xhr.responseText);
+            }).fail(function() {
                 showInlineResult($result, '❌ Request failed', 'error');
             });
         },
@@ -460,7 +456,6 @@
             );
 
             ajax('ssw_register_webhooks').done(res => {
-                console.log('Webhook registration response:', res);
 
                 if (res.success) {
                     showInlineResult(
@@ -468,20 +463,16 @@
                         `✅ ${res.data.registered} webhooks registered`,
                         'success'
                     );
-
-                    // Refresh webhook status in settings page after 1s
-                    setTimeout(() => location.reload(), 1500);
+                    SSW_Status.load();
 
                 } else {
-                    console.error('Webhook failed:', res.data);
                     showInlineResult(
                         $result,
                         '❌ ' + (res.data.message || 'Registration failed'),
                         'error'
                     );
                 }
-            }).fail(xhr => {
-                console.error('AJAX failed:', xhr.responseText);
+            }).fail(() => {
                 showInlineResult($result, '❌ Request failed', 'error');
             }).always(() => {
                 $btn.prop('disabled', false).text('🔗 Re-register Webhooks');

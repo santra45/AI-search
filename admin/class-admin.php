@@ -280,18 +280,21 @@ class SSW_Admin {
 
         if (empty($wc_key) || empty($wc_secret)) {
             wp_send_json_error([
-                'message' => 'WooCommerce Consumer Key and Secret are required.'
+                'message' => 'WooCommerce Consumer Key and Secret are required. ' .
+                            'Add them in Settings before registering webhooks.'
             ]);
         }
 
         $manager = new SSW_Webhook_Manager($license_key);
         $result  = $manager->register();
 
-        // Always return full result including debug
         if ($result['success']) {
-            wp_send_json_success($result);
+            wp_send_json_success([
+                'registered' => $result['registered'],
+                'message'    => $result['registered'] . ' webhooks registered'
+            ]);
         } else {
-            wp_send_json_error($result);
+            wp_send_json_error(['message' => $result['message']]);
         }
     }
 

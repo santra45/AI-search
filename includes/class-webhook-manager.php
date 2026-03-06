@@ -35,11 +35,7 @@ class SSW_Webhook_Manager {
             return [
                 'success'    => false,
                 'registered' => 0,
-                'message'    => 'API URL or license key not set',
-                'debug'      => [
-                    'api_url'     => $this->api_url,
-                    'has_license' => !empty($this->license_key)
-                ]
+                'message'    => 'API URL or license key not set'
             ];
         }
 
@@ -47,11 +43,7 @@ class SSW_Webhook_Manager {
             return [
                 'success'    => false,
                 'registered' => 0,
-                'message'    => 'WooCommerce Consumer Key and Secret are required',
-                'debug'      => [
-                    'has_wc_key'    => !empty($this->wc_key),
-                    'has_wc_secret' => !empty($this->wc_secret)
-                ]
+                'message'    => 'WooCommerce Consumer Key and Secret are required'
             ];
         }
 
@@ -61,11 +53,7 @@ class SSW_Webhook_Manager {
             return [
                 'success'    => false,
                 'registered' => 0,
-                'message'    => 'Could not get client_id from license key — is FastAPI running?',
-                'debug'      => [
-                    'api_url'     => $this->api_url,
-                    'status_url'  => $this->api_url . '/api/status?license_key=...'
-                ]
+                'message'    => 'Could not get client_id from license key — is FastAPI running?'
             ];
         }
 
@@ -99,11 +87,7 @@ class SSW_Webhook_Manager {
                     'url'   => $delivery_url
                 ];
             } else {
-                $failed[] = [
-                    'topic'   => $topic,
-                    'error'   => $result['message'],
-                    'debug'   => $result['debug'] ?? []
-                ];
+                $failed[] = ['topic' => $topic, 'error' => $result['message']];
             }
         }
 
@@ -114,12 +98,7 @@ class SSW_Webhook_Manager {
             'registered' => count($registered),
             'failed'     => $failed,
             'client_id'  => $client_id,
-            'message'    => count($registered) . ' of ' . count($topics) . ' webhooks registered',
-            'debug'      => [
-                'wc_url'      => $this->wc_url,
-                'registered'  => $registered,
-                'failed'      => $failed
-            ]
+            'message'    => count($registered) . ' of ' . count($topics) . ' webhooks registered'
         ];
     }
 
@@ -196,8 +175,7 @@ class SSW_Webhook_Manager {
         if (is_wp_error($response)) {
             return [
                 'success' => false,
-                'message' => $response->get_error_message(),
-                'debug'   => ['wp_error' => true]
+                'message' => $response->get_error_message()
             ];
         }
 
@@ -214,13 +192,7 @@ class SSW_Webhook_Manager {
 
         return [
             'success' => false,
-            'message' => $body['message'] ?? "HTTP {$code}",
-            'debug'   => [
-                'http_code'    => $code,
-                'response_body'=> $body,
-                'delivery_url' => $delivery_url,
-                'wc_url'       => $this->wc_url
-            ]
+            'message' => $body['message'] ?? "HTTP {$code}"
         ];
     }
 

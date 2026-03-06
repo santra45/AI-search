@@ -424,16 +424,27 @@
             showInlineResult($result, '⏳ Registering webhooks...', 'success');
 
             ajax('ssw_register_webhooks').done(res => {
+                // Log full response so we can see what's happening
+                console.log('Webhook registration response:', res);
+
                 if (res.success) {
                     showInlineResult(
                         $result,
-                        `✅ Settings saved — ${res.data.registered} webhooks registered`,
+                        `✅ ${res.data.registered} webhooks registered`,
                         'success'
                     );
-                    SSW_Status.load();   // refresh status tab
+                    SSW_Status.load();
                 } else {
-                    showInlineResult($result, '⚠️ Settings saved but webhooks failed: ' + res.data.message, 'error');
+                    console.error('Webhook failed:', res.data);
+                    showInlineResult(
+                        $result,
+                        '❌ ' + res.data.message,
+                        'error'
+                    );
                 }
+            }).fail(function(xhr) {
+                console.error('AJAX failed:', xhr.responseText);
+                showInlineResult($result, '❌ Request failed', 'error');
             });
         }
     };

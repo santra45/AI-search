@@ -35,21 +35,41 @@ class SSW_Webhook_Manager {
             return [
                 'success'    => false,
                 'registered' => 0,
-                'message'    => 'API URL or license key not set'
+                'message'    => 'API URL or license key not set',
+                'debug'      => [
+                    'api_url'     => $this->api_url,
+                    'has_license' => !empty($this->license_key)
+                ]
             ];
         }
 
-        // Get client_id from license key via API
+        if (empty($this->wc_key) || empty($this->wc_secret)) {
+            return [
+                'success'    => false,
+                'registered' => 0,
+                'message'    => 'WooCommerce Consumer Key and Secret are required',
+                'debug'      => [
+                    'has_wc_key'    => !empty($this->wc_key),
+                    'has_wc_secret' => !empty($this->wc_secret)
+                ]
+            ];
+        }
+
+        // Get client_id from license key
         $client_id = $this->get_client_id();
         if (!$client_id) {
             return [
                 'success'    => false,
                 'registered' => 0,
-                'message'    => 'Could not validate license key'
+                'message'    => 'Could not get client_id from license key — is FastAPI running?',
+                'debug'      => [
+                    'api_url'     => $this->api_url,
+                    'status_url'  => $this->api_url . '/api/status?license_key=...'
+                ]
             ];
         }
 
-        // Delete old webhooks first to avoid duplicates
+        // Delete old webhooks
         $this->delete_existing();
 
         $topics = [
@@ -79,27 +99,27 @@ class SSW_Webhook_Manager {
                     'url'   => $delivery_url
                 ];
             } else {
-                $failed[] = ['topic' => $topic, 'error' => $result['message']];
+                $failed[] = [
+                    'topic'   => $topic,
+                    'error'   => $result['message'],
+                    'debug'   => $result['debug'] ?? []
+                ];
             }
         }
 
-        // Store registered webhook IDs for status checking + cleanup
         update_option('ssw_webhooks_registered', $registered);
-        update_option('ssw_webhook_secret',      $this->wh_secret);
-
-        if (count($registered) === count($topics)) {
-            return [
-                'success'    => true,
-                'registered' => count($registered),
-                'message'    => 'All webhooks registered successfully'
-            ];
-        }
 
         return [
-            'success'    => count($registered) > 0,
+            'success'    => count($registered) === count($topics),
             'registered' => count($registered),
             'failed'     => $failed,
-            'message'    => count($registered) . ' of ' . count($topics) . ' webhooks registered'
+            'client_id'  => $client_id,
+            'message'    => count($registered) . ' of ' . count($topics) . ' webhooks registered',
+            'debug'      => [
+                'wc_url'      => $this->wc_url,
+                'registered'  => $registered,
+                'failed'      => $failed
+            ]
         ];
     }
 
@@ -176,7 +196,8 @@ class SSW_Webhook_Manager {
         if (is_wp_error($response)) {
             return [
                 'success' => false,
-                'message' => $response->get_error_message()
+                'message' => $response->get_error_message(),
+                'debug'   => ['wp_error' => true]
             ];
         }
 
@@ -193,7 +214,13 @@ class SSW_Webhook_Manager {
 
         return [
             'success' => false,
-            'message' => $body['message'] ?? "HTTP {$code}"
+            'message' => $body['message'] ?? "HTTP {$code}",
+            'debug'   => [
+                'http_code'    => $code,
+                'response_body'=> $body,
+                'delivery_url' => $delivery_url,
+                'wc_url'       => $this->wc_url
+            ]
         ];
     }
 

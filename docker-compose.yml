@@ -1,7 +1,24 @@
+version: "3.8"
+
 services:
+
+  api:
+    build: .
+    container_name: semantic_api
+    command: uvicorn backend.app.main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    depends_on:
+      - qdrant
+      - redis
+      - mysql
+    env_file:
+      - .env
+    restart: unless-stopped
 
   qdrant:
     image: qdrant/qdrant:latest
+    container_name: qdrant
     ports:
       - "6333:6333"
     volumes:
@@ -10,9 +27,23 @@ services:
 
   redis:
     image: redis:7-alpine
+    container_name: redis
     ports:
       - "6379:6379"
     restart: unless-stopped
 
+  mysql:
+    image: mysql:8
+    container_name: semantic_mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: semanticsearch
+    volumes:
+      - mysql_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    restart: unless-stopped
+
 volumes:
   qdrant_data:
+  mysql_data:

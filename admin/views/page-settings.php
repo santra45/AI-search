@@ -283,25 +283,13 @@ $sync_status_text = match($progress['status']) {
 
             <div class="ssw-btn-group">
                 <button
+                    type="button"
                     id="ssw-register-webhooks"
                     class="ssw-btn ssw-btn-secondary"
-                    onclick="
-                        this.disabled = true;
-                        this.innerHTML = '<span class=\'ssw-spinner dark\'></span> Registering...';
-                        jQuery.post(
-                            ajaxurl,
-                            {
-                                action: 'ssw_register_webhooks',
-                                nonce:  SSW_Config.nonce
-                            },
-                            function(res) {
-                                location.reload();
-                            }
-                        );
-                    "
                 >
                     🔗 Re-register Webhooks
                 </button>
+                <span id="ssw-webhook-result" class="ssw-inline-result"></span>
             </div>
 
             <p style="font-size:12px;color:var(--ssw-gray-400);margin-top:10px;">

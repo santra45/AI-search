@@ -198,20 +198,10 @@
             <div style="margin-top:16px;padding-top:16px;
                         border-top:1px solid var(--ssw-gray-200);">
                 <button
+                    type="button"
+                    id="ssw-reset-sync"
                     class="ssw-btn ssw-btn-danger"
                     style="font-size:12px;"
-                    onclick="
-                        if (!confirm('Reset sync state? This does not delete indexed products.'))
-                            return;
-                        jQuery.post(
-                            ajaxurl,
-                            {
-                                action: 'ssw_reset_sync',
-                                nonce:  SSW_Config.nonce
-                            },
-                            function() { location.reload(); }
-                        );
-                    "
                 >
                     🗑️ Reset Sync State
                 </button>

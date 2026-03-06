@@ -348,6 +348,9 @@
             // Test connection button
             $('#ssw-test-connection').on('click', () => this.testConnection());
 
+            // Register webhooks button
+            $('#ssw-register-webhooks').on('click', () => this.registerWebhooksManual());
+
             // Save settings — re-register webhooks if license key changed
             $('#ssw-settings-form').on('submit', (e) => {
                 e.preventDefault();
@@ -445,6 +448,43 @@
             }).fail(function(xhr) {
                 console.error('AJAX failed:', xhr.responseText);
                 showInlineResult($result, '❌ Request failed', 'error');
+            });
+        },
+
+        registerWebhooksManual() {
+            const $btn    = $('#ssw-register-webhooks');
+            const $result = $('#ssw-webhook-result');
+
+            $btn.prop('disabled', true).html(
+                '<span class="ssw-spinner dark"></span> Registering...'
+            );
+
+            ajax('ssw_register_webhooks').done(res => {
+                console.log('Webhook registration response:', res);
+
+                if (res.success) {
+                    showInlineResult(
+                        $result,
+                        `✅ ${res.data.registered} webhooks registered`,
+                        'success'
+                    );
+
+                    // Refresh webhook status in settings page after 1s
+                    setTimeout(() => location.reload(), 1500);
+
+                } else {
+                    console.error('Webhook failed:', res.data);
+                    showInlineResult(
+                        $result,
+                        '❌ ' + (res.data.message || 'Registration failed'),
+                        'error'
+                    );
+                }
+            }).fail(xhr => {
+                console.error('AJAX failed:', xhr.responseText);
+                showInlineResult($result, '❌ Request failed', 'error');
+            }).always(() => {
+                $btn.prop('disabled', false).text('🔗 Re-register Webhooks');
             });
         }
     };
@@ -575,6 +615,7 @@
             if (!$('#status-panel').length) return;
 
             $('#ssw-run-diagnostic').on('click', () => this.load());
+            $('#ssw-reset-sync').on('click',     () => this.resetSync());
             this.load();
         },
 
@@ -593,6 +634,14 @@
                 );
             }).always(() => {
                 $btn.prop('disabled', false).text('🔄 Run Diagnostic');
+            });
+        },
+
+        resetSync() {
+            if (!confirm('Reset sync state? This does not delete indexed products.')) return;
+
+            ajax('ssw_reset_sync').done(res => {
+                if (res.success) location.reload();
             });
         },
 

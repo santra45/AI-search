@@ -381,6 +381,8 @@
             const $result = $('#ssw-save-result');
             const prevKey = SSW.current_license_key || '';
             const newKey  = $('#ssw-license-key').val().trim();
+            const wcKey   = $('#ssw-wc-key').val().trim();
+            const wcSecret = $('#ssw-wc-secret').val().trim();
             const keyChanged = newKey !== prevKey && newKey.length > 0;
 
             $btn.prop('disabled', true).html(
@@ -391,16 +393,22 @@
                 api_url:      $('#ssw-api-url').val().trim(),
                 license_key:  newKey,
                 result_limit: $('#ssw-result-limit').val(),
-                wc_key:       $('#ssw-wc-key').val().trim(),
-                wc_secret:    $('#ssw-wc-secret').val().trim()
+                wc_key:       wcKey,
+                wc_secret:    wcSecret
             }).done(res => {
                 if (res.success) {
                     showInlineResult($result, '✅ Settings saved', 'success');
                     SSW.current_license_key = newKey;
 
-                    // Auto-register webhooks if license key changed
-                    if (keyChanged) {
+                    // Only auto-register webhooks if we have everything needed
+                    if (keyChanged && wcKey && wcSecret) {
                         this.registerWebhooks($result);
+                    } else if (keyChanged && (!wcKey || !wcSecret)) {
+                        showInlineResult(
+                            $result,
+                            '✅ Settings saved — add WC Keys to enable webhooks',
+                            'success'
+                        );
                     }
                 } else {
                     showInlineResult($result, '❌ ' + res.data.message, 'error');

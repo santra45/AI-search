@@ -251,25 +251,27 @@ class SSW_Webhook_Manager {
     // ── WooCommerce API Helper ─────────────────────────────────────────────────
 
     private function wc_request(string $method, string $endpoint, array $data = []) {
+        // Require WC credentials — no silent fallback
+        if (empty($this->wc_key) || empty($this->wc_secret)) {
+            return new WP_Error(
+                'ssw_missing_credentials',
+                'WooCommerce Consumer Key and Secret are required. ' .
+                'Add them in Semantic Search → Settings.'
+            );
+        }
+
         $url = $this->wc_url . '/wp-json/wc/v3/' . $endpoint;
 
-        // Use WooCommerce consumer key/secret if available
-        // Otherwise fall back to WordPress application passwords
         $args = [
             'method'  => $method,
             'timeout' => 15,
-            'headers' => ['Content-Type' => 'application/json'],
+            'headers' => [
+                'Content-Type'  => 'application/json',
+                'Authorization' => 'Basic ' . base64_encode(
+                    $this->wc_key . ':' . $this->wc_secret
+                )
+            ]
         ];
-
-        if (!empty($this->wc_key) && !empty($this->wc_secret)) {
-            // Basic auth with WC keys
-            $args['headers']['Authorization'] = 'Basic ' . base64_encode(
-                $this->wc_key . ':' . $this->wc_secret
-            );
-        } else {
-            // Use WordPress built-in authentication (admin is logged in)
-            $args['cookies'] = $_COOKIE;
-        }
 
         if ($method === 'GET' && !empty($data)) {
             $url = add_query_arg($data, $url);

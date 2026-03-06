@@ -271,8 +271,18 @@ class SSW_Admin {
         check_ajax_referer('ssw_nonce', 'nonce');
 
         $license_key = get_option('ssw_license_key', '');
+        $wc_key      = get_option('ssw_wc_key',      '');
+        $wc_secret   = get_option('ssw_wc_secret',   '');
+
         if (empty($license_key)) {
             wp_send_json_error(['message' => 'License key not set']);
+        }
+
+        if (empty($wc_key) || empty($wc_secret)) {
+            wp_send_json_error([
+                'message' => 'WooCommerce Consumer Key and Secret are required. ' .
+                            'Add them in Settings before registering webhooks.'
+            ]);
         }
 
         $manager = new SSW_Webhook_Manager($license_key);

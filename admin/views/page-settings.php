@@ -1,3 +1,26 @@
+<?php
+$is_configured = !empty(get_option('ssw_license_key'))
+              && !empty(get_option('ssw_wc_key'))
+              && !empty(get_option('ssw_api_url'));
+
+if (!$is_configured): ?>
+    <div class="ssw-notice info" style="margin-bottom:20px;">
+        <span style="font-size:18px;">👋</span>
+        <div>
+            <strong>Welcome! Complete these steps to activate semantic search:</strong>
+            <ol style="margin:8px 0 0 16px;font-size:13px;line-height:1.8;">
+                <li>Enter your <strong>API URL</strong> and <strong>License Key</strong></li>
+                <li>Generate a <strong>WooCommerce REST API key</strong>
+                    (Read/Write) and paste it below</li>
+                <li>Click <strong>Save Settings</strong>
+                    — webhooks register automatically</li>
+                <li>Click <strong>Sync All Products</strong>
+                    to index your catalog</li>
+            </ol>
+        </div>
+    </div>
+<?php endif; ?>
+
 <?php if (!defined('ABSPATH')) exit;
 
 $api_url     = get_option('ssw_api_url',      'http://127.0.0.1:8000');
@@ -87,11 +110,18 @@ $sync_status_text = match($progress['status']) {
                                     type="text"
                                     id="ssw-wc-key"
                                     value="<?= esc_attr(get_option('ssw_wc_key', '')) ?>"
-                                    placeholder="ck_xxxxxxxxxxxx"
+                                    placeholder="ck_xxxxxxxxxxxxxxxxxxxx"
                                 />
                                 <p class="ssw-field-desc">
-                                    WooCommerce REST API consumer key.
-                                    Generate at WooCommerce → Settings → Advanced → REST API.
+                                    Required for automatic webhook registration.<br>
+                                    <strong>How to get this:</strong>
+                                    Go to
+                                    <a href="<?= admin_url('admin.php?page=wc-settings&tab=advanced&section=keys') ?>"
+                                    target="_blank">
+                                    WooCommerce → Settings → Advanced → REST API
+                                    </a>
+                                    → Add Key → set Permissions to <strong>Read/Write</strong>
+                                    → copy the Consumer Key here.
                                 </p>
                             </td>
                         </tr>
@@ -102,10 +132,12 @@ $sync_status_text = match($progress['status']) {
                                     type="password"
                                     id="ssw-wc-secret"
                                     value="<?= esc_attr(get_option('ssw_wc_secret', '')) ?>"
-                                    placeholder="cs_xxxxxxxxxxxx"
+                                    placeholder="cs_xxxxxxxxxxxxxxxxxxxx"
                                 />
                                 <p class="ssw-field-desc">
-                                    WooCommerce REST API consumer secret.
+                                    Copy the Consumer Secret from the same page.<br>
+                                    <strong>Save it immediately</strong> —
+                                    WooCommerce only shows it once.
                                 </p>
                             </td>
                         </tr>

@@ -611,55 +611,68 @@
         },
 
         load() {
-            const $btn = $('#ssw-run-diagnostic');
+            const $btn     = $('#ssw-run-diagnostic');
+            const $loading = $('#ssw-status-loading');
+            const $list    = $('#ssw-status-list');
+
             $btn.prop('disabled', true).html(
                 '<span class="ssw-spinner dark"></span> Checking...'
             );
+            $loading.show();
+            $list.empty();
 
             ajax('ssw_status_check').done(res => {
-                if (!res.success) return;
-                this.render(res.data);
-            }).fail(() => {
-                $('#ssw-status-list').html(
+                console.log('Status check response:', res);
+
+                if (res.success) {
+                    this.render(res.data);
+                } else {
+                    $list.html(
+                        '<div class="ssw-notice error">❌ ' +
+                        (res.data?.message || 'Status check failed') +
+                        '</div>'
+                    );
+                }
+            }).fail(xhr => {
+                console.error('Status check failed:', xhr.responseText);
+                $list.html(
                     '<div class="ssw-notice error">Could not reach API server.</div>'
                 );
             }).always(() => {
+                $loading.hide();
                 $btn.prop('disabled', false).text('🔄 Run Diagnostic');
             });
         },
 
-        resetSync() {
-            if (!confirm('Reset sync state? This does not delete indexed products.')) return;
-
-            ajax('ssw_reset_sync').done(res => {
-                if (res.success) location.reload();
-            });
-        },
-
         render(data) {
-            // ── Status rows ─────────────────────────────────────
             const rows = [
                 {
                     ok:    data.api_reachable,
                     icon:  data.api_reachable ? '✅' : '❌',
                     title: 'API Server',
-                    desc:  data.api_reachable ? 'Server is reachable' : 'Cannot reach API',
+                    desc:  data.api_reachable
+                            ? 'Server is reachable'
+                            : 'Cannot reach API — check API URL in Settings',
                     value: data.api_reachable ? 'Online' : 'Offline'
                 },
                 {
                     ok:    data.license_valid,
                     icon:  data.license_valid ? '✅' : '❌',
                     title: 'License Key',
-                    desc:  data.license_valid ? 'Valid and active' : 'Invalid or expired',
-                    value: data.plan ? data.plan.charAt(0).toUpperCase() + data.plan.slice(1) + ' plan' : '—'
+                    desc:  data.license_valid
+                            ? 'Valid and active'
+                            : 'Invalid or expired — check license key in Settings',
+                    value: data.plan
+                            ? data.plan.charAt(0).toUpperCase() + data.plan.slice(1) + ' plan'
+                            : '—'
                 },
                 {
                     ok:    data.indexed_count > 0,
                     icon:  data.indexed_count > 0 ? '✅' : '⚠️',
                     title: 'Products Indexed',
                     desc:  data.indexed_count > 0
-                                ? `${formatNumber(data.indexed_count)} products in search index`
-                                : 'No products indexed — run a sync',
+                            ? `${formatNumber(data.indexed_count)} products in search index`
+                            : 'No products indexed — go to Settings and run Sync',
                     value: formatNumber(data.indexed_count)
                 },
                 {
@@ -667,8 +680,8 @@
                     icon:  data.webhooks_ok ? '✅' : '⚠️',
                     title: 'Webhooks',
                     desc:  data.webhooks_ok
-                                ? '3 webhooks registered and active'
-                                : 'Webhooks not registered',
+                            ? '3 webhooks registered and active'
+                            : 'Webhooks not registered — go to Settings to register',
                     value: data.webhooks_ok ? '3 active' : 'Not set'
                 },
                 {
@@ -676,8 +689,8 @@
                     icon:  data.search_active ? '✅' : '❌',
                     title: 'Search Active',
                     desc:  data.search_active
-                                ? 'Semantic search is intercepting queries'
-                                : 'Search interception is off',
+                            ? 'Semantic search is intercepting store queries'
+                            : 'Search not active — check API URL and License Key',
                     value: data.search_active ? 'ON' : 'OFF'
                 }
             ];
@@ -699,28 +712,43 @@
                 `);
             });
 
-            // ── Account details ─────────────────────────────────
-            const $account = $('#ssw-account-details');
-            $account.html(`
+            // Account details
+            $('#ssw-account-details').html(`
                 <div class="ssw-account-grid">
                     <div class="ssw-account-item">
                         <div class="ssw-account-item-label">Client</div>
-                        <div class="ssw-account-item-value">${escHtml(data.client_name || '—')}</div>
+                        <div class="ssw-account-item-value">
+                            ${escHtml(data.client_name || '—')}
+                        </div>
                     </div>
                     <div class="ssw-account-item">
                         <div class="ssw-account-item-label">Plan</div>
-                        <div class="ssw-account-item-value">${escHtml(data.plan || '—')}</div>
+                        <div class="ssw-account-item-value">
+                            ${escHtml(data.plan || '—')}
+                        </div>
                     </div>
                     <div class="ssw-account-item">
                         <div class="ssw-account-item-label">Domain</div>
-                        <div class="ssw-account-item-value">${escHtml(data.domain || '—')}</div>
+                        <div class="ssw-account-item-value">
+                            ${escHtml(data.domain || '—')}
+                        </div>
                     </div>
                     <div class="ssw-account-item">
                         <div class="ssw-account-item-label">Products Indexed</div>
-                        <div class="ssw-account-item-value">${formatNumber(data.indexed_count)}</div>
+                        <div class="ssw-account-item-value">
+                            ${formatNumber(data.indexed_count)}
+                        </div>
                     </div>
                 </div>
             `);
+        },
+
+        resetSync() {
+            if (!confirm('Reset sync state? This does not delete indexed products.')) return;
+
+            ajax('ssw_reset_sync').done(res => {
+                if (res.success) location.reload();
+            });
         }
     };
 

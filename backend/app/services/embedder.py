@@ -1,29 +1,33 @@
-import google.generativeai as genai
+from google import genai
 from backend.app.config import GEMINI_API_KEY, EMBED_MODEL
 
-genai.configure(api_key=GEMINI_API_KEY)
+# Initialize the client
+client = genai.Client(api_key=GEMINI_API_KEY)
 
 def embed_query(text: str) -> list[float]:
     """
-    Embed a search query.
-    Uses retrieval_query task type — different from indexing.
+    Embed a search query using the new SDK.
     """
-    result = genai.embed_content(
+    result = client.models.embed_content(
         model=EMBED_MODEL,
-        content=text,
-        task_type="retrieval_query",
+        contents=text,
+        config={
+            'task_type': 'RETRIEVAL_QUERY'
+        }
     )
-    return result["embedding"]
+    # The new SDK returns an object, not a dictionary
+    return result.embeddings[0].values
 
 
 def embed_document(text: str) -> list[float]:
     """
     Embed a product document for indexing.
-    Uses retrieval_document task type.
     """
-    result = genai.embed_content(
+    result = client.models.embed_content(
         model=EMBED_MODEL,
-        content=text,
-        task_type="retrieval_document",
+        contents=text,
+        config={
+            'task_type': 'RETRIEVAL_DOCUMENT'
+        }
     )
-    return result["embedding"]
+    return result.embeddings[0].values

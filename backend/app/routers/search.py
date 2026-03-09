@@ -13,6 +13,7 @@ from backend.app.services.license_service import (
     log_search
 )
 from backend.app.services.database import get_db
+from urllib.parse import urlparse
 
 router = APIRouter()
 
@@ -37,15 +38,18 @@ def search(req: SearchRequest, request: Request, db: Session = Depends(get_db)):
     client_id = license_data["client_id"]
 
     # CRITICAL: Enforce domain authorization
-    origin = request.headers.get("origin") or request.headers.get("referer") or ""
-    allowed_domain = license_data.get("domain", "")
-    
-    if allowed_domain and allowed_domain not in origin:
-        raise HTTPException(
-            status_code=403, 
-            detail=f"Domain not authorized. License valid for: {allowed_domain}"
-        )
+    origin = request.headers.get("origin") or request.headers.get("referer")
+    allowed_domain = license_data.get("domain")
 
+    if allowed_domain and origin:
+        hostname = urlparse(origin).hostname
+
+        if allowed_domain and hostname not in [allowed_domain, "127.0.0.1"]:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Domain not authorized. License valid for: {allowed_domain}"
+            )
+    
     # Step 2 — check monthly quota
     if not check_search_quota(db, client_id, license_data["search_limit"]):
         raise HTTPException(

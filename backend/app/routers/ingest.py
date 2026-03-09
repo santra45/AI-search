@@ -6,7 +6,8 @@ from backend.app.services.embedder import embed_document
 from backend.app.services.qdrant_service import upsert_product, delete_product, get_client_product_count
 from backend.app.services.license_service import validate_license_key, increment_ingest_count
 from backend.app.services.database import get_db
-from backend.app.services.product_service import build_product_text, extract_payload  # ← import
+from backend.app.services.product_service import build_product_text, extract_payload
+from urllib.parse import urlparse
 
 router = APIRouter()
 
@@ -51,14 +52,17 @@ def ingest(req: IngestRequest, request: Request, db: Session = Depends(get_db)):
     client_id = license_data["client_id"]
 
     # CRITICAL: Enforce domain authorization
-    origin = request.headers.get("origin") or request.headers.get("referer") or ""
-    allowed_domain = license_data.get("domain", "")
-    
-    if allowed_domain and allowed_domain not in origin:
-        raise HTTPException(
-            status_code=403, 
-            detail=f"Domain not authorized. License valid for: {allowed_domain}"
-        )
+    origin = request.headers.get("origin") or request.headers.get("referer")
+    allowed_domain = license_data.get("domain")
+
+    if allowed_domain and origin:
+        hostname = urlparse(origin).hostname
+
+        if allowed_domain and hostname not in [allowed_domain, "127.0.0.1"]:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Domain not authorized. License valid for: {allowed_domain}"
+            )
 
     # CRITICAL: Check total indexed count + incoming count against plan limit
     current_count = get_client_product_count(client_id)
@@ -106,15 +110,18 @@ def delete(req: DeleteRequest, request: Request, db: Session = Depends(get_db)):
 
     try:
         # CRITICAL: Enforce domain authorization
-        origin = request.headers.get("origin") or request.headers.get("referer") or ""
-        allowed_domain = license_data.get("domain", "")
-        
-        if allowed_domain and allowed_domain not in origin:
-            raise HTTPException(
-                status_code=403, 
-                detail=f"Domain not authorized. License valid for: {allowed_domain}"
-            )
-            
+        origin = request.headers.get("origin") or request.headers.get("referer")
+        allowed_domain = license_data.get("domain")
+
+        if allowed_domain and origin:
+            hostname = urlparse(origin).hostname
+
+            if allowed_domain and hostname not in [allowed_domain, "127.0.0.1"]:
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"Domain not authorized. License valid for: {allowed_domain}"
+                )
+
         delete_product(license_data["client_id"], req.product_id)
         return {"deleted": True, "product_id": req.product_id}
     except Exception as e:

@@ -9,6 +9,7 @@ from backend.app.services.database import get_db
 from backend.app.services.cache_service import invalidate_client_results
 from backend.app.services.product_service import build_product_text, extract_payload
 import time
+from urllib.parse import urlparse
 
 router = APIRouter()
 
@@ -59,14 +60,17 @@ def sync_batch(req: SyncBatchRequest, request: Request, db: Session = Depends(ge
     client_id   = license_data["client_id"]
     
     # CRITICAL: Enforce domain authorization
-    origin = request.headers.get("origin") or request.headers.get("referer") or ""
-    allowed_domain = license_data.get("domain", "")
-    
-    if allowed_domain and allowed_domain not in origin:
-        raise HTTPException(
-            status_code=403, 
-            detail=f"Domain not authorized. License valid for: {allowed_domain}"
-        )
+    origin = request.headers.get("origin") or request.headers.get("referer")
+    allowed_domain = license_data.get("domain")
+
+    if allowed_domain and origin:
+        hostname = urlparse(origin).hostname
+
+        if allowed_domain and hostname not in [allowed_domain, "127.0.0.1"]:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Domain not authorized. License valid for: {allowed_domain}"
+            )
     
     success_ids = []
     failed_ids  = []
@@ -117,14 +121,17 @@ def sync_status(license_key: str, request: Request, db: Session = Depends(get_db
         raise HTTPException(status_code=403, detail=str(e))
 
     # CRITICAL: Enforce domain authorization
-    origin = request.headers.get("origin") or request.headers.get("referer") or ""
-    allowed_domain = license_data.get("domain", "")
-    
-    if allowed_domain and allowed_domain not in origin:
-        raise HTTPException(
-            status_code=403, 
-            detail=f"Domain not authorized. License valid for: {allowed_domain}"
-        )
+    origin = request.headers.get("origin") or request.headers.get("referer")
+    allowed_domain = license_data.get("domain")
+
+    if allowed_domain and origin:
+        hostname = urlparse(origin).hostname
+
+        if allowed_domain and hostname not in [allowed_domain, "127.0.0.1"]:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Domain not authorized. License valid for: {allowed_domain}"
+            )
     
     count = get_client_product_count(license_data["client_id"])
 

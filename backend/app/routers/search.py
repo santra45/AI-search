@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from backend.app.services.embedder import embed_query
@@ -23,7 +23,7 @@ class SearchRequest(BaseModel):
 
 
 @router.post("/search")
-def search(req: SearchRequest, db: Session = Depends(get_db)):
+def search(req: SearchRequest, request: Request, db: Session = Depends(get_db)):
     start_time = time.time()
     if not req.query.strip():
         raise HTTPException(status_code=400, detail="Query cannot be empty")
@@ -35,6 +35,16 @@ def search(req: SearchRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=403, detail=str(e))
 
     client_id = license_data["client_id"]
+
+    # CRITICAL: Enforce domain authorization
+    origin = request.headers.get("origin") or request.headers.get("referer") or ""
+    allowed_domain = license_data.get("domain", "")
+    
+    if allowed_domain and allowed_domain not in origin:
+        raise HTTPException(
+            status_code=403, 
+            detail=f"Domain not authorized. License valid for: {allowed_domain}"
+        )
 
     # Step 2 — check monthly quota
     if not check_search_quota(db, client_id, license_data["search_limit"]):

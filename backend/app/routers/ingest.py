@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from typing import List
 from sqlalchemy.orm import Session
 from backend.app.services.embedder import embed_document
-from backend.app.services.qdrant_service import upsert_product, delete_product
+from backend.app.services.qdrant_service import upsert_product, delete_product, get_client_product_count
 from backend.app.services.license_service import validate_license_key, increment_ingest_count
 from backend.app.services.database import get_db
 from backend.app.services.product_service import build_product_text, extract_payload  # ← import
@@ -50,10 +50,15 @@ def ingest(req: IngestRequest, db: Session = Depends(get_db)):
 
     client_id = license_data["client_id"]
 
-    if len(req.products) > license_data["product_limit"]:
+    # CRITICAL: Check total indexed count + incoming count against plan limit
+    current_count = get_client_product_count(client_id)
+    incoming_count = len(req.products)
+    total_after_ingest = current_count + incoming_count
+    
+    if total_after_ingest > license_data["product_limit"]:
         raise HTTPException(
             status_code=400,
-            detail=f"Product limit is {license_data['product_limit']}"
+            detail=f"Product limit exceeded. Current: {current_count}, Incoming: {incoming_count}, Limit: {license_data['product_limit']}"
         )
 
     success = []

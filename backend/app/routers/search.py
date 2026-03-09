@@ -50,6 +50,8 @@ def search(req: SearchRequest, db: Session = Depends(get_db)):
     if cached_results is not None:
         print(f"⚡ Cache HIT (results): '{query}'")
         response_time = int((time.time() - start_time) * 1000)
+        # CRITICAL: Count cached searches toward quota to prevent bypass
+        increment_search_count(db, client_id)
         log_search(db, client_id, query, len(cached_results), response_time, cached=True)
         return {
             "query":   req.query,
@@ -84,22 +86,3 @@ def search(req: SearchRequest, db: Session = Depends(get_db)):
         "cached":  False,
         "results": results
     }
-    
-@router.get("/debug/products")
-def debug_products(client_id: str = "client_local_dev"):
-    """Returns first 5 product IDs stored in Qdrant"""
-    from backend.app.services.qdrant_service import qdrant, QDRANT_COLL
-    
-    results = qdrant.scroll(
-        collection_name=QDRANT_COLL,
-        limit=5,
-        with_payload=True
-    )
-    
-    return [
-        {
-            "qdrant_product_id": r.payload.get("product_id"),
-            "name": r.payload.get("name")
-        }
-        for r in results[0]
-    ]

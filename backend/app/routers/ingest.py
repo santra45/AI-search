@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List
 from sqlalchemy.orm import Session
 from backend.app.services.embedder import embed_document
@@ -28,7 +28,7 @@ class Product(BaseModel):
     image_url:         str = ""
     stock_status:      str = "instock"
     average_rating:    float = 0
-    attributes:        list = []   # ← add this
+    attributes:        list = Field(default_factory=list)   # ← safe mutable default
 
 
 class IngestRequest(BaseModel):

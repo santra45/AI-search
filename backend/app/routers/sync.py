@@ -23,6 +23,8 @@ class SyncProduct(BaseModel):
     price:             float = 0
     regular_price:     float = 0
     sale_price:        float = 0
+    currency:          str = ""
+    currency_symbol:   str = ""
     on_sale:           bool = False
     permalink:         str = ""
     image_url:         str = ""

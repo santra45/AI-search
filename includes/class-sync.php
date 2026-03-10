@@ -156,6 +156,8 @@ class SSW_Sync {
     $tags  = wp_get_post_terms($product->get_id(), 'product_tag', ['fields' => 'names']);
     $image = wp_get_attachment_url($product->get_image_id());
     $price = $product->get_price() ?: '0';
+    $currency = get_woocommerce_currency();
+    $currency_symbol = get_woocommerce_currency_symbol();
 
     // ── Build attributes array ─────────────────────────────────────────────
     $attributes = [];
@@ -190,6 +192,8 @@ class SSW_Sync {
         'description'       => $product->get_description(),
         'short_description' => $product->get_short_description(),
         'price'             => (float) $price,
+        'currency'          => $currency,
+        'currency_symbol'   => $currency_symbol,
         'regular_price'     => (float) ($product->get_regular_price() ?: $price),
         'sale_price'        => (float) ($product->get_sale_price() ?: 0),
         'on_sale'           => (bool)  $product->is_on_sale(),

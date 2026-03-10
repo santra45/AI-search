@@ -232,7 +232,7 @@ class SSW_Webhook_Manager {
     // ── License Key → Client ID ────────────────────────────────────────────────
 
     private function get_client_id(): ?string {
-        $url      = $this->api_url . '/api/status?license_key=' . urlencode($this->license_key);
+        $url      = $this->api_url . '/api/status';
         $is_local = in_array(
             parse_url($url, PHP_URL_HOST),
             ['localhost', '127.0.0.1', '::1']
@@ -240,7 +240,10 @@ class SSW_Webhook_Manager {
 
         $response = wp_remote_get($url, [
             'timeout'   => 8,
-            'sslverify' => !$is_local
+            'sslverify' => !$is_local,
+            'headers'   => [
+                'Authorization' => 'Bearer ' . $this->license_key
+            ]
         ]);
 
         if (is_wp_error($response)) return null;

@@ -127,8 +127,13 @@ class SSW_Admin {
 
         $api_url  = get_option('ssw_api_url', '');
         $response = wp_remote_get(
-            $api_url . '/api/dashboard/stats?license_key=' . urlencode($license_key),
-            ['timeout' => 10]
+            $api_url . '/api/dashboard/stats',
+            [
+                'timeout' => 10,
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $license_key
+                ]
+            ]
         );
 
         if (is_wp_error($response)) {
@@ -156,7 +161,7 @@ class SSW_Admin {
         $days        = (int) ($_POST['days'] ?? 7);
 
         $base = $api_url . '/api/analytics/';
-        $key  = '?license_key=' . urlencode($license_key) . '&days=' . $days;
+        $key  = '?days=' . $days;
 
         // Fetch all three endpoints in parallel using WordPress HTTP API
         $endpoints = [
@@ -167,7 +172,12 @@ class SSW_Admin {
 
         $results = [];
         foreach ($endpoints as $key_name => $url) {
-            $res = wp_remote_get($url, ['timeout' => 10]);
+            $res = wp_remote_get($url, [
+                'timeout' => 10,
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $license_key
+                ]
+            ]);
             if (!is_wp_error($res) && wp_remote_retrieve_response_code($res) === 200) {
                 $results[$key_name] = json_decode(wp_remote_retrieve_body($res), true);
             } else {
@@ -341,8 +351,13 @@ class SSW_Admin {
         }
 
         $response = wp_remote_get(
-            $api_url . '/api/status?license_key=' . urlencode($license_key),
-            ['timeout' => 8]
+            $api_url . '/api/status',
+            [
+                'timeout' => 8,
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $license_key
+                ]
+            ]
         );
 
         if (is_wp_error($response)) {

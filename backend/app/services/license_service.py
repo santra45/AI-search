@@ -1,6 +1,7 @@
 import uuid
 import os
 from datetime import datetime, timedelta
+from typing import Optional
 from jose import jwt, JWTError
 from sqlalchemy.orm import Session
 from sqlalchemy import text
@@ -188,6 +189,22 @@ def check_search_quota(db: Session, client_id: str, search_limit: int) -> bool:
     usage = get_monthly_usage(db, client_id)
     return usage["search_count"] < search_limit
 
+
+def extract_license_key_from_authorization(authorization: Optional[str]) -> Optional[str]:
+    if not authorization:
+        return None
+
+    parts = authorization.strip().split()
+    if len(parts) != 2:
+        return None
+
+    scheme, token = parts[0], parts[1]
+    if scheme.lower() != "bearer":
+        return None
+
+    return token or None
+
+
 # ─── Search Logging ────────────────────────────────────────────────────────────
 
 def log_search(
@@ -213,6 +230,7 @@ def log_search(
         "cached":           1 if cached else 0
     })
     db.commit()
+
 
 # ─── Ingest Logging ────────────────────────────────────────────────────────────
 

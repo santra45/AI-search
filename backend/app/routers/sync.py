@@ -1,10 +1,10 @@
-from fastapi import APIRouter, HTTPException, Depends, Request
+from fastapi import APIRouter, HTTPException, Depends, Request, Header, Query
 from pydantic import BaseModel, Field
-from typing import List
+from typing import List, Optional
 from sqlalchemy.orm import Session
 from backend.app.services.embedder import embed_document
 from backend.app.services.qdrant_service import upsert_product, get_client_product_count
-from backend.app.services.license_service import validate_license_key, increment_ingest_count
+from backend.app.services.license_service import validate_license_key, increment_ingest_count, extract_license_key_from_authorization
 from backend.app.services.database import get_db
 from backend.app.services.cache_service import invalidate_client_results
 from backend.app.services.product_service import build_product_text, extract_payload
@@ -114,9 +114,18 @@ def sync_batch(req: SyncBatchRequest, request: Request, db: Session = Depends(ge
 
 
 @router.get("/sync/status")
-def sync_status(license_key: str, request: Request, db: Session = Depends(get_db)):
+def sync_status(
+    request: Request,
+    authorization: Optional[str] = Header(None),
+    license_key: Optional[str] = Query(None),
+    db: Session = Depends(get_db)
+):
+    token = extract_license_key_from_authorization(authorization) or license_key
+    if not token:
+        raise HTTPException(status_code=401, detail="Missing Authorization header")
+
     try:
-        license_data = validate_license_key(license_key, db)
+        license_data = validate_license_key(token, db)
     except ValueError as e:
         raise HTTPException(status_code=403, detail=str(e))
 

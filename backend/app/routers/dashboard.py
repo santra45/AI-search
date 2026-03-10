@@ -1,10 +1,11 @@
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Header, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from backend.app.services.database import get_db
-from backend.app.services.license_service import validate_license_key
+from backend.app.services.license_service import validate_license_key, extract_license_key_from_authorization
 from backend.app.services.qdrant_service import get_client_product_count
 from datetime import datetime
+from typing import Optional
 
 router = APIRouter()
 
@@ -17,17 +18,33 @@ def get_client(license_key: str, db: Session) -> dict:
         raise HTTPException(status_code=403, detail=str(e))
 
 
+def get_license_key(
+    authorization: Optional[str],
+    license_key: Optional[str]
+) -> str:
+    header_token = extract_license_key_from_authorization(authorization)
+    if header_token:
+        return header_token
+
+    if license_key:
+        return license_key
+
+    raise HTTPException(status_code=401, detail="Missing Authorization header")
+
+
 # ─── Dashboard Stats ───────────────────────────────────────────────────────────
 
 @router.get("/dashboard/stats")
 def dashboard_stats(
-    license_key: str,
+    authorization: Optional[str] = Header(None),
+    license_key: Optional[str] = Query(None),
     db: Session = Depends(get_db)
 ):
     """
     Returns everything the dashboard overview needs in one call.
     """
-    client = get_client(license_key, db)
+    client = get_client(get_license_key(authorization, license_key), db)
+
     client_id = client["client_id"]
     month     = datetime.utcnow().strftime("%Y-%m")
 
@@ -97,13 +114,15 @@ def dashboard_stats(
 
 @router.get("/analytics/top-queries")
 def top_queries(
-    license_key: str,
+    authorization: Optional[str] = Header(None),
+    license_key: Optional[str] = Query(None),
     days: int = 7,
     limit: int = 10,
     db: Session = Depends(get_db)
 ):
     """Most searched queries in the last N days."""
-    client    = get_client(license_key, db)
+    client    = get_client(get_license_key(authorization, license_key), db)
+
     client_id = client["client_id"]
 
     rows = db.execute(text("""
@@ -134,13 +153,15 @@ def top_queries(
 
 @router.get("/analytics/zero-results")
 def zero_results(
-    license_key: str,
+    authorization: Optional[str] = Header(None),
+    license_key: Optional[str] = Query(None),
     days: int = 7,
     limit: int = 10,
     db: Session = Depends(get_db)
 ):
     """Queries that returned zero results — shows gaps in catalog."""
-    client    = get_client(license_key, db)
+    client    = get_client(get_license_key(authorization, license_key), db)
+
     client_id = client["client_id"]
 
     rows = db.execute(text("""
@@ -165,12 +186,14 @@ def zero_results(
 
 @router.get("/analytics/summary")
 def analytics_summary(
-    license_key: str,
+    authorization: Optional[str] = Header(None),
+    license_key: Optional[str] = Query(None),
     days: int = 7,
     db: Session = Depends(get_db)
 ):
     """Cache hit rate, avg response time, daily volume for charts."""
-    client    = get_client(license_key, db)
+    client    = get_client(get_license_key(authorization, license_key), db)
+
     client_id = client["client_id"]
 
     # Overall stats
@@ -226,11 +249,13 @@ def analytics_summary(
 
 @router.get("/status")
 def status_check(
-    license_key: str,
+    authorization: Optional[str] = Header(None),
+    license_key: Optional[str] = Query(None),
     db: Session = Depends(get_db)
 ):
     """Full status check — used by the Status tab in the plugin."""
-    client    = get_client(license_key, db)
+    client    = get_client(get_license_key(authorization, license_key), db)
+
     client_id = client["client_id"]
 
     indexed_count = get_client_product_count(client_id)

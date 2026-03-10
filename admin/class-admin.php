@@ -251,9 +251,8 @@ class SSW_Admin {
         update_option('ssw_api_url',      rtrim($api_url, '/'));
         update_option('ssw_result_limit', max(1, min(50, $result_limit)));
 
-        if (!empty($license_key)) {
-            update_option('ssw_license_key', $license_key);
-        }
+        // Always update the license key option (even if empty to clear it)
+        update_option('ssw_license_key', $license_key);
         if (!empty($wc_key)) {
             update_option('ssw_wc_key',    $wc_key);
         }

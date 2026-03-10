@@ -124,8 +124,22 @@
             $panel.find('.ssw-loading').show();
 
             ajax('ssw_dashboard_stats').done(res => {
-                if (!res.success) return;
-                this.render(res.data);
+                if (!res.success) {
+                    const msg = (res && res.data && res.data.message)
+                        ? res.data.message
+                        : 'Failed to load dashboard data.';
+                    $panel.find('.ssw-loading').html(
+                        `<div class="ssw-notice error">${escHtml(msg)}</div>`
+                    );
+                    return;
+                }
+                try {
+                    this.render(res.data);
+                } catch (e) {
+                    $panel.find('.ssw-loading').html(
+                        '<div class="ssw-notice error">Failed to load dashboard data.</div>'
+                    );
+                }
             }).fail(() => {
                 $panel.find('.ssw-loading').html(
                     '<div class="ssw-notice error">Failed to load dashboard data.</div>'
@@ -219,9 +233,30 @@
         },
 
         load() {
+            const $panel = $('#analytics-panel');
+            $panel.find('.ssw-loading').show();
+
             ajax('ssw_analytics_data', { days: this.days }).done(res => {
-                if (!res.success) return;
-                this.render(res.data);
+                if (!res.success) {
+                    const msg = (res && res.data && res.data.message)
+                        ? res.data.message
+                        : 'Failed to load analytics data.';
+                    $panel.find('.ssw-loading').html(
+                        `<div class="ssw-notice error">${escHtml(msg)}</div>`
+                    );
+                    return;
+                }
+                try {
+                    this.render(res.data);
+                } catch (e) {
+                    $panel.find('.ssw-loading').html(
+                        '<div class="ssw-notice error">Failed to load analytics data.</div>'
+                    );
+                }
+            }).fail(() => {
+                $panel.find('.ssw-loading').html(
+                    '<div class="ssw-notice error">Failed to load analytics data.</div>'
+                );
             });
         },
 

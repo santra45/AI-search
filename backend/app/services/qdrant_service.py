@@ -1,40 +1,67 @@
 from qdrant_client import QdrantClient
-from qdrant_client.models import Filter, FieldCondition, MatchValue, PointStruct
+from qdrant_client.models import Filter, FieldCondition, MatchValue, MatchAny, Range
 from backend.app.config import QDRANT_HOST, QDRANT_PORT, QDRANT_COLL
 import uuid
 
 qdrant = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
 
 
-def search_products(client_id: str, query_vector: list, limit: int = 10) -> list:
+from qdrant_client.models import Filter, FieldCondition, MatchValue, MatchAny, Range
+
+def search_products(
+    client_id: str, 
+    query_vector: list, 
+    limit: int = 10,
+    min_price: float = None,
+    max_price: float = None,
+    only_in_stock: bool = False
+) -> list:
+    
+    # 1. Build dynamic filters
+    must_conditions = [
+        FieldCondition(key="client_id", match=MatchValue(value=client_id))
+    ]
+
+    # Add Price Range if provided
+    if min_price is not None or max_price is not None:
+        must_conditions.append(
+            FieldCondition(
+                key="price",
+                range=Range(
+                    gte=min_price, # Greater than or equal
+                    lte=max_price  # Less than or equal
+                )
+            )
+        )
+
+    # Add Stock Filter
+    if only_in_stock:
+        must_conditions.append(
+            FieldCondition(key="stock_status", match=MatchValue(value="instock"))
+        )
+
+    # 2. Execute Query
     result = qdrant.query_points(
         collection_name=QDRANT_COLL,
         query=query_vector,
-        query_filter=Filter(
-            must=[
-                FieldCondition(
-                    key="client_id",
-                    match=MatchValue(value=client_id)
-                )
-            ]
-        ),
+        query_filter=Filter(must=must_conditions),
         limit=limit,
         with_payload=True
     )
-    hits = result.points 
 
+    # 3. Format results
     return [
         {
-            "product_id":  hit.payload.get("product_id"),
-            "name":        hit.payload.get("name"),
-            "price":       hit.payload.get("price"),
-            "permalink":   hit.payload.get("permalink"),
-            "image_url":   hit.payload.get("image_url"),
-            "stock_status":hit.payload.get("stock_status"),
-            "categories":  hit.payload.get("categories"),
-            "score":       round(hit.score, 4)
+            "product_id":   hit.payload.get("product_id"),
+            "name":         hit.payload.get("name"),
+            "price":        hit.payload.get("price"),
+            "permalink":    hit.payload.get("permalink"),
+            "image_url":    hit.payload.get("image_url"),
+            "stock_status": hit.payload.get("stock_status"),
+            "categories":   hit.payload.get("categories"),
+            "score":        round(hit.score, 4)
         }
-        for hit in hits
+        for hit in result.points
     ]
 
 

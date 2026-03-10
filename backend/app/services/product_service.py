@@ -127,6 +127,27 @@ def resolve_image_url(images) -> str:
         return images
     return ""
 
+# ─── Price Bucket Helper ───────────────────────────────────────────────────────
+
+def price_bucket(price: float) -> str:
+    """
+    Convert price into semantic affordability buckets.
+    Works across most stores.
+    """
+
+    if price <= 0:
+        return ""
+
+    if price < 500:
+        return "very cheap budget"
+    elif price < 2000:
+        return "budget affordable"
+    elif price < 10000:
+        return "mid range"
+    elif price < 50000:
+        return "premium"
+    else:
+        return "luxury high end"
 
 # ─── Build Embedding Text ─────────────────────────────────────────────────────
 
@@ -147,10 +168,18 @@ def build_product_text(p: dict) -> str:
     parts = []
 
     # ── 1. Product name (highest weight — appears first) ───────────────────
+    sku = p.get("sku", "").strip()
+    if sku:
+        parts.append(f"SKU: {sku}")
+    
     name = p.get("name", "").strip()
     if name:
         parts.append(f"Product: {name}")
-
+    
+    brand = p.get("brand", "").strip()
+    if brand:
+        parts.append(f"Brand: {brand}")
+    
     # ── 2. Categories (store owner already categorized correctly) ──────────
     cats_str = resolve_list_or_string(p.get("categories", []))
     if cats_str:
@@ -178,16 +207,27 @@ def build_product_text(p: dict) -> str:
         parts.append(f"Description: {desc}")
 
     # ── 7. Price (useful for price-based queries) ──────────────────────────
-    price = float(p.get("price", 0))
+    raw_price = p.get("price")
+    try:
+        price_val = float(raw_price) if raw_price else 0.0
+    except ValueError:
+        price_val = 0.0
+
+    price = price_val
 
     if price > 0:
+        currency = p.get("currency", "")
         if price.is_integer():
             price_str = str(int(price))
         else:
             price_str = str(price)
-
+        bucket = price_bucket(price)
         currency_symbol = html.unescape(p.get("currency_symbol", ""))
-        parts.append(f"Price: {currency_symbol}{price_str}")
+        parts.append(
+            f"Price: {currency_symbol}{price_str} {currency}. "
+            f"Price value {price_str} {currency.lower()}. "
+            f"Budget level: {bucket}"
+        )
 
     return "\n".join(parts)
 
@@ -203,13 +243,20 @@ def extract_payload(p: dict) -> dict:
     cats_str  = resolve_list_or_string(p.get("categories", []))
     tags_str  = resolve_list_or_string(p.get("tags", []))
     image_url = resolve_image_url(p.get("images", p.get("image_url", "")))
-    price     = str(p.get("price", "0") or "0")
+    raw_price = p.get("price")
+    try:
+        price_val = float(raw_price) if raw_price else 0.0
+    except ValueError:
+        price_val = 0.0
+    price = price_val
 
     # All attributes stored dynamically
     attributes = p.get("attributes", [])
     attr_map   = extract_attributes(attributes)["attr_map"] if attributes else {}
 
     return {
+        "sku":            p.get("sku", ""),
+        "brand":          p.get("brand", ""),
         "name":           p.get("name", ""),
         "permalink":      p.get("permalink", ""),
         "price":          float(price),

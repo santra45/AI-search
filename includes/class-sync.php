@@ -185,11 +185,13 @@ class SSW_Sync {
     }
 
     return [
+        'sku'               => $product->get_sku() ?: '',
         'product_id'        => (string) $product->get_id(),
         'name'              => $product->get_name(),
         'categories'        => implode(', ', is_array($cats) ? $cats : []),
         'tags'              => implode(', ', is_array($tags) ? $tags : []),
         'description'       => $product->get_description(),
+        'brand'             => $product->get_brand() ?: '',
         'short_description' => $product->get_short_description(),
         'price'             => (float) $price,
         'currency'          => $currency,

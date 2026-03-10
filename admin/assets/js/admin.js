@@ -58,6 +58,10 @@
         return $.post(ajaxurl, { action, nonce, ...data });
     }
 
+    function hasLicenseKey() {
+        return !!(SSW.current_license_key && String(SSW.current_license_key).trim().length > 0);
+    }
+
     function formatNumber(n) {
         return Number(n).toLocaleString();
     }
@@ -122,6 +126,12 @@
         load() {
             const $panel = $('#dashboard-panel');
             $panel.find('.ssw-loading').show();
+
+            if (!hasLicenseKey()) {
+                $panel.find('.ssw-content').hide();
+                $panel.find('.ssw-loading').hide();
+                return;
+            }
 
             ajax('ssw_dashboard_stats').done(res => {
                 if (!res.success) {
@@ -235,6 +245,12 @@
         load() {
             const $panel = $('#analytics-panel');
             $panel.find('.ssw-loading').show();
+
+            if (!hasLicenseKey()) {
+                $panel.find('.ssw-content').hide();
+                $panel.find('.ssw-loading').hide();
+                return;
+            }
 
             ajax('ssw_analytics_data', { days: this.days }).done(res => {
                 if (!res.success) {
@@ -390,6 +406,7 @@
             $('#ssw-settings-form').on('submit', (e) => {
                 e.preventDefault();
                 this.saveSettings();
+                window.location.reload();
             });
         },
 
@@ -657,7 +674,6 @@
             $list.empty();
 
             ajax('ssw_status_check').done(res => {
-                console.log('Status check response:', res);
 
                 if (res.success) {
                     this.render(res.data);

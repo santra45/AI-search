@@ -16,6 +16,7 @@ class SSW_Webhook_Manager {
         $this->license_key = $license_key;
         $this->api_url     = get_option('ssw_api_url', '');
         $this->wh_secret   = get_option('ssw_webhook_secret', $this->generate_secret());
+        $this->send_secret_to_api();
 
         // WooCommerce uses the site URL for REST API
         $this->wc_url    = get_site_url();
@@ -300,4 +301,29 @@ class SSW_Webhook_Manager {
         update_option('ssw_webhook_secret', $secret);
         return $secret;
     }
+
+    // ── Send Secret to API ─────────────────────────────────────────────────────
+    private function send_secret_to_api(): void {
+
+    if (empty($this->api_url) || empty($this->license_key) || empty($this->wh_secret)) {
+        return;
+    }
+
+    $url = $this->api_url . '/api/register-webhook-secret';
+
+    $response = wp_remote_post($url, [
+        'timeout' => 10,
+        'headers' => [
+            'Content-Type' => 'application/json'
+        ],
+        'body' => json_encode([
+            'license_key'     => $this->license_key,
+            'webhook_secret'  => $this->wh_secret
+        ])
+    ]);
+
+    if (is_wp_error($response)) {
+        error_log('SSW: Failed to send webhook secret: ' . $response->get_error_message());
+    }
+}
 }

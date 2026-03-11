@@ -23,6 +23,7 @@ class SearchRequest(BaseModel):
     license_key: str
     query: str
     limit: int = 10
+    enable_intent: bool = False
 
 
 @router.post("/search")
@@ -76,30 +77,42 @@ async def search(req: SearchRequest, request: Request, db: Session = Depends(get
             "results": cached_results
         }
 
-    # ─── NEW: INTENT ANALYSIS ───────────────────────────────────────────────
-    # We do this BEFORE embedding because we need to know IF we need filters.
-    # Note: You might want to cache this too if Gemini gets expensive/slow.
-    intent = analyze_intent(query)
-    print(f"🧠 Intent Extracted: {intent.clean_query} | Max: {intent.max_price}")
+    # ─── INTENT ANALYSIS (conditional) ────────────────────────────────────────
+    if req.enable_intent:
+        # We do this BEFORE embedding because we need to know IF we need filters.
+        # Note: You might want to cache this too if Gemini gets expensive/slow.
+        intent = analyze_intent(query)
+        print(f"🧠 Intent Extracted: {intent.clean_query} | Max: {intent.max_price}")
+        clean_query = intent.clean_query
+        min_price = intent.min_price
+        max_price = intent.max_price
+        only_in_stock = intent.only_in_stock
+    else:
+        # Use original query without intent analysis
+        intent = None
+        clean_query = query
+        min_price = None
+        max_price = None
+        only_in_stock = False
     # ────────────────────────────────────────────────────────────────────────
 
     # Step 4 — check embedding cache
-    query_vector = get_cached_embedding(intent.clean_query)
+    query_vector = get_cached_embedding(clean_query)
     if query_vector is not None:
-        print(f"⚡ Cache HIT (embedding): '{intent.clean_query}'")
+        print(f"⚡ Cache HIT (embedding): '{clean_query}'")
     else:
-        print(f"🌐 Cache MISS: '{intent.clean_query}' — calling Gemini")
-        query_vector = embed_query(intent.clean_query)
+        print(f"🌐 Cache MISS: '{clean_query}' — calling Gemini")
+        query_vector = embed_query(clean_query)
         set_cached_embedding(query, query_vector)
 
     # Step 5 — search Qdrant
-    results = results = search_products(
+    results = search_products(
         client_id=client_id,
         query_vector=query_vector,
         limit=req.limit,
-        min_price=intent.min_price,
-        max_price=intent.max_price,
-        only_in_stock=intent.only_in_stock
+        min_price=min_price,
+        max_price=max_price,
+        only_in_stock=only_in_stock
     )
 
     # Step 5a — check if fallback should be triggered

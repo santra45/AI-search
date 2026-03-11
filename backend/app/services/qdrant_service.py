@@ -1,5 +1,5 @@
 from qdrant_client import QdrantClient
-from qdrant_client.models import Filter, FieldCondition, MatchValue, MatchAny, Range
+from qdrant_client.models import Filter, FieldCondition, MatchValue, MatchAny, Range, PointStruct
 from backend.app.config import QDRANT_HOST, QDRANT_PORT, QDRANT_COLL
 import uuid
 

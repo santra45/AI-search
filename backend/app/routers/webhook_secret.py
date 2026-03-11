@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from backend.app.services.database import get_db
+from backend.app.services.license_service import validate_license_key
 from fastapi import Depends
 
 router = APIRouter()
@@ -18,18 +19,12 @@ def register_webhook_secret(
     db: Session = Depends(get_db)
 ):
 
-    # find client using license key
-    client = db.execute(
-        text("""
-        SELECT id
-        FROM clients
-        WHERE license_key = :license_key
-        """),
-        {"license_key": payload.license_key}
-    ).fetchone()
-
-    if not client:
-        raise HTTPException(status_code=404, detail="Client not found")
+    # validate license key and get client info using license_service
+    try:
+        license_info = validate_license_key(payload.license_key, db)
+        client_id = license_info["client_id"]
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
     # save webhook secret
     db.execute(
@@ -40,10 +35,10 @@ def register_webhook_secret(
         """),
         {
             "secret": payload.webhook_secret,
-            "client_id": client.id
+            "client_id": client_id
         }
     )
 
     db.commit()
 
-    return {"status": "saved", "client_id": client.id}
+    return {"status": "saved", "client_id": client_id}

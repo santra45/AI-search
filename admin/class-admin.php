@@ -238,7 +238,6 @@ class SSW_Admin {
         }
     }
 
-
     // ── AJAX: Save Settings ────────────────────────────────────────────────────
 
     public function ajax_save_settings(): void {
@@ -251,8 +250,9 @@ class SSW_Admin {
         $api_url      = sanitize_text_field($_POST['api_url']      ?? '');
         $license_key  = sanitize_text_field($_POST['license_key']  ?? '');
         $result_limit = (int) ($_POST['result_limit'] ?? 10);
-        $wc_key       = sanitize_text_field($_POST['wc_key']       ?? '');  // ← add
-        $wc_secret    = sanitize_text_field($_POST['wc_secret']    ?? '');  // ← add
+        $wc_key       = sanitize_text_field($_POST['wc_key']       ?? '');
+        $wc_secret    = sanitize_text_field($_POST['wc_secret']    ?? '');
+        $enable_intent = (isset($_POST['enable_intent']) && (int)$_POST['enable_intent'] === 1) ? 1 : 0;
 
         if (empty($api_url)) {
             wp_send_json_error(['message' => 'API URL is required']);
@@ -260,6 +260,7 @@ class SSW_Admin {
 
         update_option('ssw_api_url',      rtrim($api_url, '/'));
         update_option('ssw_result_limit', max(1, min(50, $result_limit)));
+        update_option('ssw_enable_intent', $enable_intent);
 
         // Always update the license key option (even if empty to clear it)
         update_option('ssw_license_key', $license_key);

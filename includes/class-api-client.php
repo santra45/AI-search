@@ -19,14 +19,23 @@ class SSW_API_Client {
      * Returns empty array on any failure (triggers fallback).
      */
     public function search(string $query): array {
+        $enable_intent = get_option('ssw_enable_intent', 0);
+        
+        $payload = [
+            'license_key' => $this->license_key,
+            'query'     => $query,
+            'limit'     => $this->limit
+        ];
+        
+        // Only include intent setting if enabled
+        if ($enable_intent) {
+            $payload['enable_intent'] = true;
+        }
+        
         $response = wp_remote_post($this->api_url . '/api/search', [
             'timeout' => 4,      // 4 seconds max — fallback if slow
             'headers' => ['Content-Type' => 'application/json'],
-            'body'    => json_encode([
-                'license_key' => $this->license_key,
-                'query'     => $query,
-                'limit'     => $this->limit
-            ])
+            'body'    => json_encode($payload)
         ]);
 
         // Network error or timeout → return empty (fallback to native search)

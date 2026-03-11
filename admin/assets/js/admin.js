@@ -445,7 +445,8 @@
                 license_key:  newKey,
                 result_limit: $('#ssw-result-limit').val(),
                 wc_key:       wcKey,
-                wc_secret:    wcSecret
+                wc_secret:    wcSecret,
+                enable_intent: $('#ssw-enable-intent').is(':checked') ? 1 : 0
             }).done(res => {
                 if (res.success) {
                     showInlineResult($result, '✅ Settings saved', 'success');

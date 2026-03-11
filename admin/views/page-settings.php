@@ -142,6 +142,28 @@ $sync_status_text = match($progress['status']) {
                             </td>
                         </tr>
                     </tr>
+                    <tr>
+                        <th>
+                            <label for="ssw-enable-intent">Enable Intent Analyzer</label>
+                        </th>
+                        <td>
+                            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                                <input
+                                    type="checkbox"
+                                    id="ssw-enable-intent"
+                                    name="enable_intent"
+                                    value="1"
+                                    <?= checked(get_option('ssw_enable_intent', 0), 1, false) ?>
+                                />
+                                <span>Extract price filters and attributes from search queries</span>
+                            </label>
+                            <p class="ssw-field-desc">
+                                When enabled, uses AI to analyze search queries for price ranges, 
+                                stock status, and product attributes (e.g., "red shoes under $50").
+                                <br><strong>Note:</strong> This adds an extra API call but provides more accurate filtering.
+                            </p>
+                        </td>
+                    </tr>
                 </table>
 
                 <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--ssw-gray-200);">

@@ -135,9 +135,7 @@
 
             ajax('ssw_dashboard_stats').done(res => {
                 if (!res.success) {
-                    const msg = (res && res.data && res.data.message)
-                        ? res.data.message
-                        : 'Failed to load dashboard data.';
+                    const msg = 'Failed to load dashboard data.';
                     $panel.find('.ssw-loading').html(
                         `<div class="ssw-notice error">${escHtml(msg)}</div>`
                     );
@@ -254,9 +252,7 @@
 
             ajax('ssw_analytics_data', { days: this.days }).done(res => {
                 if (!res.success) {
-                    const msg = (res && res.data && res.data.message)
-                        ? res.data.message
-                        : 'Failed to load analytics data.';
+                    const msg = 'Failed to load analytics data.';
                     $panel.find('.ssw-loading').html(
                         `<div class="ssw-notice error">${escHtml(msg)}</div>`
                     );
@@ -683,6 +679,7 @@
                         (res.data?.message || 'Status check failed') +
                         '</div>'
                     );
+                    $('#ssw-account-details').html('<div class="ssw-notice error">Please check your API URL and License Key.</div>');
                 }
             }).fail(xhr => {
                 console.error('Status check failed:', xhr.responseText);

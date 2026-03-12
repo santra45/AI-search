@@ -106,6 +106,9 @@ function ssw_autoload(): void {
         SSW_PLUGIN_DIR . 'includes/class-webhook-manager.php',
         SSW_PLUGIN_DIR . 'includes/class-search.php',
 
+        // Public (frontend functionality)
+        SSW_PLUGIN_DIR . 'public/class-shortcode.php',
+
         // Admin (load after includes)
         SSW_PLUGIN_DIR . 'admin/class-admin.php',
     ];
@@ -158,6 +161,64 @@ function ssw_register_rest_routes(): void {
                     return is_numeric($param) && $param > 0;
                 },
                 'default'           => 10
+            ]
+        ]
+    ]);
+
+    // Frontend search endpoint
+    register_rest_route('ssw/v1', '/search', [
+        'methods'             => 'POST',
+        'callback'           => 'ssw_frontend_search_endpoint',
+        'permission_callback' => '__return_true',
+        'args'                => [
+            'query' => [
+                'required'          => true,
+                'validate_callback' => function($param) {
+                    return is_string($param) && !empty($param);
+                }
+            ],
+            'limit' => [
+                'required'          => false,
+                'validate_callback' => function($param) {
+                    return is_numeric($param) && $param > 0;
+                },
+                'default'           => 12
+            ],
+            'page' => [
+                'required'          => false,
+                'validate_callback' => function($param) {
+                    return is_numeric($param) && $param > 0;
+                },
+                'default'           => 1
+            ],
+            'filters' => [
+                'required'          => false,
+                'validate_callback' => function($param) {
+                    return is_array($param);
+                },
+                'default'           => []
+            ]
+        ]
+    ]);
+
+    // Suggestions endpoint
+    register_rest_route('ssw/v1', '/suggestions', [
+        'methods'             => 'GET',
+        'callback'           => 'ssw_suggestions_endpoint',
+        'permission_callback' => '__return_true',
+        'args'                => [
+            'query' => [
+                'required'          => true,
+                'validate_callback' => function($param) {
+                    return is_string($param) && !empty($param);
+                }
+            ],
+            'limit' => [
+                'required'          => false,
+                'validate_callback' => function($param) {
+                    return is_numeric($param) && $param > 0;
+                },
+                'default'           => 5
             ]
         ]
     ]);
@@ -352,14 +413,344 @@ function ssw_format_product_for_api(WC_Product $product): array {
         'id'           => $product->get_id(),
         'name'         => $product->get_name(),
         'price'        => $product->get_price(),
+        'regular_price' => $product->get_regular_price(),
+        'sale_price'   => $product->get_sale_price(),
         'permalink'    => $product->get_permalink(),
         'stock_status' => $product->get_stock_status(),
         'categories'   => $categories,
         'images'       => [['src' => $image_url]],
-        'sku'          => $product->get_sku()
+        'image'        => $image_url,
+        'sku'          => $product->get_sku(),
+        'type'         => $product->get_type(),
+        'on_sale'      => $product->is_on_sale()
     ];
 }
 
+function ssw_frontend_search_endpoint(WP_REST_Request $request): WP_REST_Response {
+    $query = $request->get_param('query');
+    $limit = (int) $request->get_param('limit');
+    $page = (int) $request->get_param('page');
+    $filters = $request->get_param('filters');
+    
+    $start_time = microtime(true);
+    
+    try {
+        // Try semantic search first if API is configured
+        $api_url = get_option('ssw_api_url', '');
+        $license_key = get_option('ssw_license_key', '');
+        
+        if (!empty($api_url) && !empty($license_key)) {
+            $api_client = new SSW_API_Client($api_url, $license_key, $limit);
+            $product_ids = $api_client->search($query);
+            
+            if (!empty($product_ids)) {
+                $products = ssw_get_products_by_ids($product_ids, $limit, $page, $filters);
+                $search_time = round(microtime(true) - $start_time, 3);
+                
+                return new WP_REST_Response([
+                    'success' => true,
+                    'data' => [
+                        'products' => $products,
+                        'total' => count($product_ids),
+                        'total_pages' => ceil(count($product_ids) / $limit),
+                        'current_page' => $page,
+                        'search_time' => $search_time
+                    ]
+                ], 200);
+            }
+        }
+        
+        // Fallback to keyword search
+        $keywords = explode(' ', $query);
+        $products = ssw_keyword_search_with_filters($keywords, $query, $limit, $page, $filters);
+        $search_time = round(microtime(true) - $start_time, 3);
+        
+        return new WP_REST_Response([
+            'success' => true,
+            'data' => [
+                'products' => $products,
+                'total' => count($products),
+                'total_pages' => ceil(count($products) / $limit),
+                'current_page' => $page,
+                'search_time' => $search_time
+            ]
+        ], 200);
+        
+    } catch (Exception $e) {
+        error_log('[SSW] Frontend search error: ' . $e->getMessage());
+        
+        return new WP_REST_Response([
+            'success' => false,
+            'error' => 'Search failed',
+            'data' => [
+                'products' => [],
+                'total' => 0,
+                'total_pages' => 0,
+                'current_page' => $page
+            ]
+        ], 500);
+    }
+}
+
+function ssw_suggestions_endpoint(WP_REST_Request $request): WP_REST_Response {
+    $query = $request->get_param('query');
+    $limit = (int) $request->get_param('limit');
+    
+    try {
+        $suggestions = [];
+        
+        // Get product name suggestions
+        $product_suggestions = ssw_get_product_suggestions($query, $limit);
+        foreach ($product_suggestions as $suggestion) {
+            $suggestions[] = [
+                'text' => $suggestion,
+                'type' => 'auto_complete'
+            ];
+        }
+        
+        // Get "did you mean" suggestions (basic implementation)
+        $did_you_mean = ssw_get_did_you_mean_suggestions($query, 2);
+        foreach ($did_you_mean as $suggestion) {
+            $suggestions[] = [
+                'text' => $suggestion,
+                'type' => 'did_you_mean'
+            ];
+        }
+        
+        return new WP_REST_Response([
+            'success' => true,
+            'data' => array_slice($suggestions, 0, $limit)
+        ], 200);
+        
+    } catch (Exception $e) {
+        error_log('[SSW] Suggestions error: ' . $e->getMessage());
+        
+        return new WP_REST_Response([
+            'success' => false,
+            'data' => []
+        ], 500);
+    }
+}
+
+function ssw_get_products_by_ids(array $product_ids, int $limit, int $page, array $filters): array {
+    $offset = ($page - 1) * $limit;
+    $paged_ids = array_slice($product_ids, $offset, $limit);
+    
+    $args = [
+        'post_type' => 'product',
+        'post__in' => $paged_ids,
+        'posts_per_page' => $limit,
+        'orderby' => 'post__in',
+        'post_status' => 'publish'
+    ];
+    
+    // Apply filters
+    $args = ssw_apply_filters_to_args($args, $filters);
+    
+    $query = new WP_Query($args);
+    $products = [];
+    
+    if ($query->have_posts()) {
+        while ($query->have_posts()) {
+            $query->the_post();
+            $product = wc_get_product(get_the_ID());
+            
+            if ($product) {
+                $products[] = ssw_format_product_for_api($product);
+            }
+        }
+    }
+    
+    wp_reset_postdata();
+    return $products;
+}
+
+function ssw_keyword_search_with_filters(array $keywords, string $original_query, int $limit, int $page, array $filters): array {
+    $offset = ($page - 1) * $limit;
+    
+    $args = [
+        'post_type' => 'product',
+        'post_status' => 'publish',
+        'posts_per_page' => $limit,
+        'offset' => $offset,
+        'orderby' => 'title',
+        'order' => 'ASC'
+    ];
+    
+    // Apply filters
+    $args = ssw_apply_filters_to_args($args, $filters);
+    
+    // Apply keyword search logic (similar to existing function)
+    $tax_query = ['relation' => 'OR'];
+    $meta_query = ['relation' => 'OR'];
+    
+    if (!empty($keywords)) {
+        // Category search
+        $category_terms = [];
+        foreach ($keywords as $keyword) {
+            $cat_terms = get_terms([
+                'taxonomy' => 'product_cat',
+                'name__like' => $keyword,
+                'fields' => 'ids'
+            ]);
+            
+            if (!empty($cat_terms) && !is_wp_error($cat_terms)) {
+                $category_terms = array_merge($category_terms, $cat_terms);
+            }
+        }
+        
+        if (!empty($category_terms)) {
+            $tax_query[] = [
+                'taxonomy' => 'product_cat',
+                'field' => 'term_id',
+                'terms' => array_unique($category_terms),
+                'operator' => 'IN'
+            ];
+        }
+        
+        // SKU search
+        foreach ($keywords as $keyword) {
+            $meta_query[] = [
+                'key' => '_sku',
+                'value' => $keyword,
+                'compare' => 'LIKE'
+            ];
+        }
+    }
+    
+    if (count($tax_query) > 1) {
+        $args['tax_query'] = $tax_query;
+    }
+    
+    if (count($meta_query) > 1) {
+        $args['meta_query'] = $meta_query;
+    }
+    
+    $args['s'] = $original_query;
+    
+    $query = new WP_Query($args);
+    $products = [];
+    
+    if ($query->have_posts()) {
+        while ($query->have_posts()) {
+            $query->the_post();
+            $product = wc_get_product(get_the_ID());
+            
+            if ($product) {
+                $products[] = ssw_format_product_for_api($product);
+            }
+        }
+    }
+    
+    wp_reset_postdata();
+    return $products;
+}
+
+function ssw_apply_filters_to_args(array $args, array $filters): array {
+    if (empty($filters)) {
+        return $args;
+    }
+    
+    $tax_query = isset($args['tax_query']) ? $args['tax_query'] : [];
+    $meta_query = isset($args['meta_query']) ? $args['meta_query'] : [];
+    
+    // Category filter
+    if (!empty($filters['categories'])) {
+        $tax_query[] = [
+            'taxonomy' => 'product_cat',
+            'field' => 'term_id',
+            'terms' => $filters['categories'],
+            'operator' => 'IN'
+        ];
+    }
+    
+    // Price filter
+    if (!empty($filters['min_price']) || !empty($filters['max_price'])) {
+        $price_query = [
+            'key' => '_price',
+            'compare' => 'BETWEEN',
+            'value' => [
+                !empty($filters['min_price']) ? $filters['min_price'] : 0,
+                !empty($filters['max_price']) ? $filters['max_price'] : 999999
+            ],
+            'type' => 'NUMERIC'
+        ];
+        $meta_query[] = $price_query;
+    }
+    
+    if (!empty($tax_query)) {
+        $args['tax_query'] = $tax_query;
+    }
+    
+    if (!empty($meta_query)) {
+        $args['meta_query'] = $meta_query;
+    }
+    
+    return $args;
+}
+
+function ssw_get_product_suggestions(string $query, int $limit): array {
+    $args = [
+        'post_type' => 'product',
+        'post_status' => 'publish',
+        'posts_per_page' => $limit,
+        's' => $query,
+        'orderby' => 'title',
+        'order' => 'ASC'
+    ];
+    
+    $products = [];
+    $query_obj = new WP_Query($args);
+    
+    if ($query_obj->have_posts()) {
+        while ($query_obj->have_posts()) {
+            $query_obj->the_post();
+            $products[] = get_the_title();
+        }
+    }
+    
+    wp_reset_postdata();
+    return $products;
+}
+
+function ssw_get_did_you_mean_suggestions(string $query, int $limit): array {
+    // Basic implementation - could be enhanced with more sophisticated algorithms
+    $suggestions = [];
+    
+    // Get all product titles
+    $args = [
+        'post_type' => 'product',
+        'post_status' => 'publish',
+        'posts_per_page' => 100,
+        'orderby' => 'title',
+        'order' => 'ASC'
+    ];
+    
+    $query_obj = new WP_Query($args);
+    $titles = [];
+    
+    if ($query_obj->have_posts()) {
+        while ($query_obj->have_posts()) {
+            $query_obj->the_post();
+            $titles[] = get_the_title();
+        }
+    }
+    
+    wp_reset_postdata();
+    
+    // Simple string similarity check
+    foreach ($titles as $title) {
+        $similarity = similar_text(strtolower($query), strtolower($title), $percent);
+        if ($percent > 50 && $percent < 100) { // Similar but not exact match
+            $suggestions[] = $title;
+            if (count($suggestions) >= $limit) {
+                break;
+            }
+        }
+    }
+    
+    return $suggestions;
+}
 
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
 
@@ -381,5 +772,60 @@ function ssw_init(): void {
     // Boot search interception (front-end only, requires config)
     if (!is_admin() && !empty($api_url) && !empty($license_key)) {
         new SSW_Search($api_url, $license_key, $limit);
+    }
+
+    // Boot frontend shortcode (always available)
+    if (!is_admin()) {
+        $api_client = new SSW_API_Client($api_url, $license_key, $limit);
+        new SSW_Shortcode($api_client);
+    }
+}
+
+// AJAX handler for add to cart
+add_action('wp_ajax_ssw_add_to_cart', 'ssw_ajax_add_to_cart');
+add_action('wp_ajax_nopriv_ssw_add_to_cart', 'ssw_ajax_add_to_cart');
+
+function ssw_ajax_add_to_cart(): void {
+    check_ajax_referer('ssw_add_to_cart_nonce', 'nonce');
+    
+    $product_id = intval($_POST['product_id']);
+    $quantity = isset($_POST['quantity']) ? intval($_POST['quantity']) : 1;
+    
+    if ($product_id <= 0) {
+        wp_send_json_error(['message' => 'Invalid product ID']);
+    }
+    
+    $product = wc_get_product($product_id);
+    if (!$product) {
+        wp_send_json_error(['message' => 'Product not found']);
+    }
+    
+    if (!$product->is_purchasable()) {
+        wp_send_json_error(['message' => 'Product is not purchasable']);
+    }
+    
+    if (!$product->is_in_stock()) {
+        wp_send_json_error(['message' => 'Product is out of stock']);
+    }
+    
+    $cart_item_key = WC()->cart->add_to_cart($product_id, $quantity);
+    
+    if ($cart_item_key) {
+        WC()->cart->calculate_totals();
+        
+        // Return fragments for cart update
+        ob_start();
+        woocommerce_mini_cart();
+        $mini_cart = ob_get_clean();
+        
+        wp_send_json_success([
+            'message' => 'Product added to cart',
+            'fragments' => [
+                'div.widget_shopping_cart_content' => $mini_cart
+            ],
+            'cart_hash' => WC()->cart->get_cart_hash()
+        ]);
+    } else {
+        wp_send_json_error(['message' => 'Failed to add product to cart']);
     }
 }

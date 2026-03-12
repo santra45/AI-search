@@ -345,9 +345,10 @@
             const isOnSale = product.on_sale;
             const isInStock = product.stock_status === 'instock';
             const isVariable = product.type === 'variable';
-            
+            const productUrl = product.permalink;
+
             return `
-                <div class="ssw-product-card" data-product-id="${product.id}">
+                <div class="ssw-product-card" data-product-id="${product.id}" data-product-url="${productUrl}">
                     <div class="ssw-product-image">
                         ${imageUrl ? `<img src="${imageUrl}" alt="${product.name}" loading="lazy">` : ''}
                         ${isOnSale ? '<div class="ssw-product-badge">Sale</div>' : ''}
@@ -382,16 +383,21 @@
             // Select options buttons
             this.productsGrid.find('.ssw-select-options').on('click', (e) => {
                 e.stopPropagation();
-                const productId = $(e.currentTarget).data('product-id');
-                window.location.href = $(e.currentTarget).closest('.ssw-product-card').find('a').attr('href') || `/product/?product_id=${productId}`;
+                const productCard = $(e.currentTarget).closest('.ssw-product-card');
+                const url = productCard.data('product-url');
+                if (url) {
+                    window.location.href = url;
+                }
             });
 
             // Product card click
             this.productsGrid.find('.ssw-product-card').on('click', (e) => {
                 if (!$(e.target).is('button')) {
-                    const productId = $(e.currentTarget).data('product-id');
-                    // You can customize this to open product modal or navigate to product page
-                    window.location.href = `/product/?product_id=${productId}`;
+                    const productCard = $(e.currentTarget);
+                    const url = productCard.data('product-url');
+                    if (url) {
+                        window.location.href = url;
+                    }
                 }
             });
         }

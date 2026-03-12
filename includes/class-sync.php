@@ -158,6 +158,25 @@ class SSW_Sync {
     $price = $product->get_price() ?: '0';
     $currency = get_woocommerce_currency();
     $currency_symbol = get_woocommerce_currency_symbol();
+    $sku = $product->get_sku();
+        if (!$sku && $product->is_type('variable')) {
+        $children = $product->get_children();
+        if (!empty($children)) {
+            $variation = wc_get_product($children[0]);
+            if ($variation) {
+                $sku = $variation->get_sku();
+            }
+        }
+    }
+    $brand = '';
+    $brand_terms = wp_get_post_terms($product->get_id(), 'product_brand', ['fields' => 'names']);
+    if (!empty($brand_terms)) {
+        $brand = implode(', ', $brand_terms);
+    }
+
+    if (!$brand) {
+        $brand = $product->get_attribute('pa_brand');
+    }
 
     // ── Build attributes array ─────────────────────────────────────────────
     $attributes = [];
@@ -185,13 +204,13 @@ class SSW_Sync {
     }
 
     return [
-        'sku'               => $product->get_sku() ?: '',
+        'sku'               => $sku,
         'product_id'        => (string) $product->get_id(),
         'name'              => $product->get_name(),
         'categories'        => implode(', ', is_array($cats) ? $cats : []),
         'tags'              => implode(', ', is_array($tags) ? $tags : []),
         'description'       => $product->get_description(),
-        'brand'             => $product->get_brand() ?: '',
+        'brand'             => $brand, '',
         'short_description' => $product->get_short_description(),
         'price'             => (float) $price,
         'currency'          => $currency,

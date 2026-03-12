@@ -5,7 +5,7 @@ class SSW_Search {
 
     private SSW_API_Client $api;
 
-    public function __construct(string $api_url, string $license_key) {
+    public function __construct(string $api_url, string $license_key, int $limit) {
         $limit     = (int) get_option('ssw_result_limit', 10);
         $this->api = new SSW_API_Client($api_url, $license_key, $limit);
 

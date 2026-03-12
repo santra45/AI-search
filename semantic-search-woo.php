@@ -430,7 +430,6 @@ function ssw_frontend_search_endpoint(WP_REST_Request $request): WP_REST_Respons
     $query = $request->get_param('query');
     $limit = (int) $request->get_param('limit');
     $page = (int) $request->get_param('page');
-    $filters = $request->get_param('filters');
     
     $start_time = microtime(true);
     
@@ -444,7 +443,7 @@ function ssw_frontend_search_endpoint(WP_REST_Request $request): WP_REST_Respons
             $product_ids = $api_client->search($query);
             
             if (!empty($product_ids)) {
-                $products = ssw_get_products_by_ids($product_ids, $limit, $page, $filters);
+                $products = ssw_get_products_by_ids($product_ids, $limit, $page, []);
                 $search_time = round(microtime(true) - $start_time, 3);
                 
                 return new WP_REST_Response([
@@ -462,7 +461,7 @@ function ssw_frontend_search_endpoint(WP_REST_Request $request): WP_REST_Respons
         
         // Fallback to keyword search
         $keywords = explode(' ', $query);
-        $products = ssw_keyword_search_with_filters($keywords, $query, $limit, $page, $filters);
+        $products = ssw_keyword_search_with_filters($keywords, $query, $limit, $page, []);
         $search_time = round(microtime(true) - $start_time, 3);
         
         return new WP_REST_Response([
@@ -544,9 +543,6 @@ function ssw_get_products_by_ids(array $product_ids, int $limit, int $page, arra
         'post_status' => 'publish'
     ];
     
-    // Apply filters
-    $args = ssw_apply_filters_to_args($args, $filters);
-    
     $query = new WP_Query($args);
     $products = [];
     
@@ -577,15 +573,10 @@ function ssw_keyword_search_with_filters(array $keywords, string $original_query
         'order' => 'ASC'
     ];
     
-    // Apply filters
-    $args = ssw_apply_filters_to_args($args, $filters);
-    
-    // Apply keyword search logic (similar to existing function)
     $tax_query = ['relation' => 'OR'];
     $meta_query = ['relation' => 'OR'];
     
     if (!empty($keywords)) {
-        // Category search
         $category_terms = [];
         foreach ($keywords as $keyword) {
             $cat_terms = get_terms([
@@ -608,7 +599,6 @@ function ssw_keyword_search_with_filters(array $keywords, string $original_query
             ];
         }
         
-        // SKU search
         foreach ($keywords as $keyword) {
             $meta_query[] = [
                 'key' => '_sku',
@@ -644,49 +634,6 @@ function ssw_keyword_search_with_filters(array $keywords, string $original_query
     
     wp_reset_postdata();
     return $products;
-}
-
-function ssw_apply_filters_to_args(array $args, array $filters): array {
-    if (empty($filters)) {
-        return $args;
-    }
-    
-    $tax_query = isset($args['tax_query']) ? $args['tax_query'] : [];
-    $meta_query = isset($args['meta_query']) ? $args['meta_query'] : [];
-    
-    // Category filter
-    if (!empty($filters['categories'])) {
-        $tax_query[] = [
-            'taxonomy' => 'product_cat',
-            'field' => 'term_id',
-            'terms' => $filters['categories'],
-            'operator' => 'IN'
-        ];
-    }
-    
-    // Price filter
-    if (!empty($filters['min_price']) || !empty($filters['max_price'])) {
-        $price_query = [
-            'key' => '_price',
-            'compare' => 'BETWEEN',
-            'value' => [
-                !empty($filters['min_price']) ? $filters['min_price'] : 0,
-                !empty($filters['max_price']) ? $filters['max_price'] : 999999
-            ],
-            'type' => 'NUMERIC'
-        ];
-        $meta_query[] = $price_query;
-    }
-    
-    if (!empty($tax_query)) {
-        $args['tax_query'] = $tax_query;
-    }
-    
-    if (!empty($meta_query)) {
-        $args['meta_query'] = $meta_query;
-    }
-    
-    return $args;
 }
 
 function ssw_get_product_suggestions(string $query, int $limit): array {

@@ -64,25 +64,15 @@ class SSW_Shortcode {
         $atts = shortcode_atts([
             'placeholder' => __('Search products...', 'semantic-search-woo'),
             'limit' => 12,
-            'show_filters' => 'true',
             'show_history' => 'true',
             'layout' => 'default',
             'columns' => 4
         ], $atts, 'semantic_search');
 
         // Convert string attributes to proper types
-        $atts['show_filters'] = filter_var($atts['show_filters'], FILTER_VALIDATE_BOOLEAN);
         $atts['show_history'] = filter_var($atts['show_history'], FILTER_VALIDATE_BOOLEAN);
         $atts['limit'] = (int) $atts['limit'];
         $atts['columns'] = (int) $atts['columns'];
-
-        // Get categories for filter
-        $categories = get_terms([
-            'taxonomy' => 'product_cat',
-            'orderby' => 'name',
-            'hide_empty' => true,
-            'number' => 20
-        ]);
 
         ob_start();
         include dirname(__FILE__) . '/templates/search-form.php';

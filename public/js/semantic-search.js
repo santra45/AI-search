@@ -46,8 +46,6 @@
 
         init() {
             this.bindEvents();
-            this.setupFilters();
-            this.loadSearchHistory();
         }
 
         bindEvents() {
@@ -66,17 +64,6 @@
                     this.hideSuggestions();
                 }
             });
-            
-            // Filters toggle
-            this.container.find('.ssw-filters-toggle-btn').on('click', this.toggleFilters.bind(this));
-            this.container.find('.ssw-filters-toggle').on('click', this.toggleFiltersPanel.bind(this));
-            
-            // Filter changes
-            this.container.find('.ssw-filter-label input').on('change', this.handleFilterChange.bind(this));
-            this.container.find('.ssw-price-range input').on('input', $.debounce(this.handleFilterChange.bind(this), 500));
-            
-            // Clear filters
-            this.container.find('.ssw-clear-filters').on('click', this.clearFilters.bind(this));
             
             // Search history
             this.container.find('.ssw-clear-history').on('click', this.clearSearchHistory.bind(this));
@@ -274,7 +261,6 @@
             this.showLoading();
 
             try {
-                const filters = this.getActiveFilters();
                 const response = await $.ajax({
                     url: this.config.apiUrl + 'search',
                     method: 'POST',
@@ -282,7 +268,7 @@
                         query: this.currentQuery,
                         limit: this.config.limit,
                         page: this.currentPage,
-                        filters: filters
+                        filters: {}
                     },
                     beforeSend: (xhr) => {
                         xhr.setRequestHeader('X-WP-Nonce', this.config.nonce);
@@ -489,61 +475,6 @@
             this.searchInput.focus();
         }
 
-        setupFilters() {
-            // Initialize filters if they exist
-            const hasFilters = this.container.find('.ssw-filters-panel').length > 0;
-            this.container.find('.ssw-filters-toggle-btn').toggle(hasFilters);
-        }
-
-        toggleFilters() {
-            const panel = this.container.find('.ssw-filters-panel');
-            panel.slideToggle(300);
-        }
-
-        toggleFiltersPanel() {
-            const panel = this.container.find('.ssw-filters-panel');
-            const toggle = this.container.find('.ssw-filters-toggle');
-            
-            panel.slideToggle(300);
-            toggle.toggleClass('collapsed');
-        }
-
-        handleFilterChange() {
-            if (this.currentQuery) {
-                this.performSearch();
-            }
-        }
-
-        getActiveFilters() {
-            const filters = {};
-            
-            // Category filters
-            const categories = [];
-            this.container.find('input[name="category[]"]:checked').each(function() {
-                categories.push($(this).val());
-            });
-            if (categories.length) {
-                filters.categories = categories;
-            }
-            
-            // Price range
-            const minPrice = this.container.find('input[name="min_price"]').val();
-            const maxPrice = this.container.find('input[name="max_price"]').val();
-            if (minPrice) filters.min_price = parseFloat(minPrice);
-            if (maxPrice) filters.max_price = parseFloat(maxPrice);
-            
-            return filters;
-        }
-
-        clearFilters() {
-            this.container.find('input[type="checkbox"]').prop('checked', false);
-            this.container.find('input[type="number"]').val('');
-            
-            if (this.currentQuery) {
-                this.performSearch();
-            }
-        }
-
         async loadMoreProducts() {
             if (this.isLoading || this.currentPage >= this.totalPages) {
                 return;
@@ -556,7 +487,6 @@
             loadMoreButton.addClass('loading').text('Loading...');
 
             try {
-                const filters = this.getActiveFilters();
                 const response = await $.ajax({
                     url: this.config.apiUrl + 'search',
                     method: 'POST',
@@ -564,7 +494,7 @@
                         query: this.currentQuery,
                         limit: this.config.limit,
                         page: this.currentPage,
-                        filters: filters
+                        filters: {}
                     },
                     beforeSend: (xhr) => {
                         xhr.setRequestHeader('X-WP-Nonce', this.config.nonce);

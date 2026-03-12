@@ -11,7 +11,7 @@ GEMINI_KEY  = os.getenv("GEMINI_API_KEY")
 QDRANT_HOST = "localhost"
 QDRANT_PORT = 6333
 QDRANT_COLL = "local_shared_products"
-CLIENT_ID   = "client_local_dev"
+CLIENT_ID   = "9bd2cf13-f6d9-44e5-80e8-331544a1e8cb"
 
 # ─── Init ──────────────────────────────────────────────────────────────────────
 genai.configure(api_key=GEMINI_KEY)

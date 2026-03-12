@@ -49,20 +49,40 @@ def search_products(
         with_payload=True
     )
 
-    # 3. Format results
-    return [
-        {
-            "product_id":   hit.payload.get("product_id"),
-            "name":         hit.payload.get("name"),
-            "price":        hit.payload.get("price"),
-            "permalink":    hit.payload.get("permalink"),
-            "image_url":    hit.payload.get("image_url"),
-            "stock_status": hit.payload.get("stock_status"),
-            "categories":   hit.payload.get("categories"),
-            "score":        round(hit.score, 4)
+    # ─── Fixed fields always returned ─────────────────────────────────────────
+    FIXED_KEYS = {
+        "product_id", "name", "price", "permalink", "image_url",
+        "stock_status", "categories", "client_id",
+    }
+
+    # 3. Format results — fixed fields + tags + all dynamic attributes
+    # Dynamic attributes (gender, color, size, etc.) are stored flat in the
+    # payload by extract_payload() and are needed by rerank_service for
+    # keyword comparison.
+    results = []
+    for hit in result.points:
+        p = hit.payload
+
+        entry = {
+            "product_id":   p.get("product_id"),
+            "name":         p.get("name"),
+            "price":        p.get("price"),
+            "permalink":    p.get("permalink"),
+            "image_url":    p.get("image_url"),
+            "stock_status": p.get("stock_status"),
+            "categories":   p.get("categories"),
+            "tags":         p.get("tags", ""),   # ← needed for rerank
+            "score":        round(hit.score, 4),
         }
-        for hit in result.points
-    ]
+
+        # Attach every dynamic attribute (gender, color, material, size…)
+        for key, val in p.items():
+            if key not in FIXED_KEYS and key not in entry:
+                entry[key] = val
+
+        results.append(entry)
+
+    return results
 
 
 def upsert_product(client_id: str, product_id: str, vector: list, payload: dict):

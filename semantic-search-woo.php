@@ -409,10 +409,24 @@ function ssw_format_product_for_api(WC_Product $product): array {
         }
     }
     
+    // Get min and max prices for variable products
+    $min_price = $product->get_price();
+    $max_price = $product->get_price();
+    
+    if ($product->get_type() === 'variable') {
+        $variation_prices = $product->get_variation_prices();
+        if (!empty($variation_prices['price'])) {
+            $min_price = min($variation_prices['price']);
+            $max_price = max($variation_prices['price']);
+        }
+    }
+    
     return [
         'id'           => $product->get_id(),
         'name'         => $product->get_name(),
         'price'        => $product->get_price(),
+        'min_price'    => $min_price,
+        'max_price'    => $max_price,
         'regular_price' => $product->get_regular_price(),
         'sale_price'   => $product->get_sale_price(),
         'permalink'    => $product->get_permalink(),

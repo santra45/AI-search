@@ -30,7 +30,12 @@
                 layout: this.container.data('layout') || 'default',
                 minChars: 2,
                 debounceDelay: 300,
-                maxHistory: 5
+                maxHistory: 5,
+                locale: semanticSearchConfig.locale,
+                currency: semanticSearchConfig.currency,
+                currencySymbol: semanticSearchConfig.currencySymbol,
+                currencyPosition: semanticSearchConfig.currencyPosition,
+                decimals: semanticSearchConfig.decimals
             };
             
             // State
@@ -339,13 +344,37 @@
         }
 
         createProductCardHTML(product) {
-            const imageUrl = product.image || product.images?.[0]?.src || '';
-            const price = this.formatPrice(product.price);
-            const regularPrice = product.regular_price ? this.formatPrice(product.regular_price) : '';
+            const imageUrl = product.image || '';
             const isOnSale = product.on_sale;
             const isInStock = product.stock_status === 'instock';
             const isVariable = product.type === 'variable';
             const productUrl = product.permalink;
+
+            // Price display
+            let priceHtml = '';
+            if (isVariable) {
+                // For variable products, show price range
+                const minPrice = parseFloat(product.min_price || product.price || 0);
+                const maxPrice = parseFloat(product.max_price || product.price || 0);
+                
+                if (minPrice === maxPrice) {
+                    priceHtml = `<div class="ssw-product-price">${this.formatPrice(minPrice)}</div>`;
+                } else {
+                    priceHtml = `<div class="ssw-product-price">${this.formatPrice(minPrice)} - ${this.formatPrice(maxPrice)}</div>`;
+                }
+            } else {
+                // For simple products
+                if (isOnSale && product.sale_price && product.regular_price) {
+                    priceHtml = `
+                        <div class="ssw-product-price">
+                            <span class="sale-price">${this.formatPrice(product.sale_price)}</span>
+                            <span class="regular-price">${this.formatPrice(product.regular_price)}</span>
+                        </div>
+                    `;
+                } else {
+                    priceHtml = `<div class="ssw-product-price">${this.formatPrice(product.price)}</div>`;
+                }
+            }
 
             return `
                 <div class="ssw-product-card" data-product-id="${product.id}" data-product-url="${productUrl}">
@@ -355,10 +384,7 @@
                     </div>
                     <div class="ssw-product-content">
                         <h3 class="ssw-product-title">${product.name}</h3>
-                        <div class="ssw-product-price">
-                            ${isOnSale ? `<span class="sale-price">${price}</span>` : price}
-                            ${isOnSale && regularPrice ? `<span class="regular-price">${regularPrice}</span>` : ''}
-                        </div>
+                        ${priceHtml}
                         <div class="ssw-product-actions">
                             ${isInStock ? 
                                 (isVariable ? 
@@ -452,11 +478,35 @@
             const count = header.find('.ssw-results-count');
             const time = header.find('.ssw-results-time');
             
-            title.text(`Search results for "${this.currentQuery}"`);
-            count.text(`${data.total || 0} products`);
-            time.text(`(${data.search_time || 0}s)`);
-            
-            header.show();
+            if (data.products && data.products.length > 0) {
+                title.text(`Results for "${this.currentQuery}"`);
+                count.text(`${data.total} products found`);
+                time.text(`${data.search_time}s`);
+                header.show();
+            }
+        }
+
+        formatPrice(price) {
+            if (!price) return '';
+            const value = parseFloat(price);
+            const locale = (this.config.locale || 'en-US').replace('_', '-');
+            const formattedNumber = new Intl.NumberFormat(locale, {
+                minimumFractionDigits: parseInt(this.config.decimals),
+                maximumFractionDigits: parseInt(this.config.decimals)
+            }).format(value);
+            const symbol = this.config.currencySymbol;
+            switch (this.config.currencyPosition) {
+                case 'left':
+                    return symbol + formattedNumber;
+                case 'right':
+                    return formattedNumber + symbol;
+                case 'left_space':
+                    return symbol + ' ' + formattedNumber;
+                case 'right_space':
+                    return formattedNumber + ' ' + symbol;
+                default:
+                    return symbol + formattedNumber;
+            }
         }
 
         showNoResults() {
@@ -520,15 +570,6 @@
             } finally {
                 loadMoreButton.removeClass('loading').text(originalText);
             }
-        }
-
-        formatPrice(price) {
-            // Format price based on WooCommerce settings
-            const formattedPrice = parseFloat(price).toFixed(2);
-            return new Intl.NumberFormat('en-US', {
-                style: 'currency',
-                currency: 'USD' // This should be dynamic based on store currency
-            }).format(formattedPrice);
         }
 
         getSearchHistory() {

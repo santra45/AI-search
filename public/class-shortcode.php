@@ -38,14 +38,21 @@ class SSW_Shortcode {
             wp_localize_script('semantic-search-js', 'semanticSearchConfig', [
                 'apiUrl' => rest_url('ssw/v1/'),
                 'nonce' => wp_create_nonce('wp_rest'),
-                'ajaxUrl' => admin_url('admin-ajax.php'),
+                'addToCartNonce' => wp_create_nonce('ssw_add_to_cart_nonce'),
+                'currency' => get_woocommerce_currency(),
+                'currencySymbol' => get_woocommerce_currency_symbol(),
+                'currencyPosition' => get_option('woocommerce_currency_pos'),
+                'decimalSeparator' => wc_get_price_decimal_separator(),
+                'thousandSeparator' => wc_get_price_thousand_separator(),
+                'decimals' => wc_get_price_decimals(),
+                'locale' => get_locale(),
                 'texts' => [
-                    'searchPlaceholder' => __('Search products...', 'semantic-search-woo'),
-                    'searching' => __('Searching...', 'semantic-search-woo'),
+                    'addToCart' => __('Add to Cart', 'semantic-search-woo'),
+                    'selectOptions' => __('Select Options', 'semantic-search-woo'),
+                    'outOfStock' => __('Out of Stock', 'semantic-search-woo'),
+                    'loading' => __('Loading...', 'semantic-search-woo'),
                     'noResults' => __('No products found', 'semantic-search-woo'),
-                    'addToCart' => __('Add to cart', 'semantic-search-woo'),
-                    'selectOptions' => __('Select options', 'semantic-search-woo'),
-                    'outOfStock' => __('Out of stock', 'semantic-search-woo'),
+                    'error' => __('An error occurred. Please try again.', 'semantic-search-woo'),
                     'didYouMean' => __('Did you mean:', 'semantic-search-woo'),
                     'suggestions' => __('Suggestions:', 'semantic-search-woo'),
                     'filters' => __('Filters', 'semantic-search-woo'),
@@ -53,7 +60,9 @@ class SSW_Shortcode {
                     'priceRange' => __('Price Range', 'semantic-search-woo'),
                     'clearFilters' => __('Clear filters', 'semantic-search-woo'),
                     'loadMore' => __('Load more', 'semantic-search-woo'),
-                    'searchingProducts' => __('Searching products...', 'semantic-search-woo')
+                    'searchingProducts' => __('Searching products...', 'semantic-search-woo'),
+                    'searchPlaceholder' => __('Search products...', 'semantic-search-woo'),
+                    'searching' => __('Searching...', 'semantic-search-woo')
                 ]
             ]);
         }
@@ -63,7 +72,7 @@ class SSW_Shortcode {
         // Default attributes
         $atts = shortcode_atts([
             'placeholder' => __('Search products...', 'semantic-search-woo'),
-            'limit' => 12,
+            'limit' => 4,
             'show_history' => 'true',
             'layout' => 'default',
             'columns' => 4

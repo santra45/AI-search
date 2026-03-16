@@ -149,11 +149,52 @@ class SSW_Sync {
         ]);
     }
 
+    private function extract_gender(array $tags): string {
+    if (empty($tags)) return '';
+
+        $map = [
+            'Men'   => ['men', 'male', 'gents'],
+            'Women' => ['women', 'female', 'ladies'],
+            'Kids'  => ['kids', 'child', 'boy', 'girl']
+        ];
+
+        foreach ($tags as $tag) {
+            // Just in case koi object pass ho jaye, handle it
+            $tagName = is_object($tag) ? $tag->name : (string)$tag;
+            $tagName = strtolower($tagName);
+
+            foreach ($map as $gender => $keywords) {
+                foreach ($keywords as $keyword) {
+                    if (strpos($tagName, $keyword) !== false) {
+                        return $gender;
+                    }
+                }
+            }
+        }
+
+        return '';
+    }
+
     private function format_product($product): ?array {
     if (!$product) return null;
-
-    $cats  = wp_get_post_terms($product->get_id(), 'product_cat', ['fields' => 'names']);
+    $terms = wc_get_product_terms($product->get_id(), 'product_cat');
+    $cats = [];
+    if (!empty($terms)) {
+        usort($terms, function($a, $b){
+            return count(get_ancestors($b->term_id,'product_cat')) - count(get_ancestors($a->term_id,'product_cat'));
+        });
+        $term = $terms[0];
+        $ancestors = array_reverse(get_ancestors($term->term_id,'product_cat'));
+        foreach ($ancestors as $ancestor_id) {
+            $ancestor = get_term($ancestor_id,'product_cat');
+            if ($ancestor) {
+                $cats[] = $ancestor->name;
+            }
+        }
+        $cats[] = $term->name;
+    }
     $tags  = wp_get_post_terms($product->get_id(), 'product_tag', ['fields' => 'names']);
+    $gender = $this->extract_gender($tags);
     $image = wp_get_attachment_url($product->get_image_id());
     $price = $product->get_price() ?: '0';
     $currency = get_woocommerce_currency();
@@ -207,10 +248,11 @@ class SSW_Sync {
         'sku'               => $sku,
         'product_id'        => (string) $product->get_id(),
         'name'              => $product->get_name(),
-        'categories'        => implode(', ', is_array($cats) ? $cats : []),
-        'tags'              => implode(', ', is_array($tags) ? $tags : []),
+        'categories'        => implode(' > ', $cats),
+        'tags'              => implode(' ', is_array($tags) ? $tags : []),
+        'gender'            => $gender,
         'description'       => $product->get_description(),
-        'brand'             => $brand, '',
+        'brand'             => $brand,
         'short_description' => $product->get_short_description(),
         'price'             => (float) $price,
         'currency'          => $currency,

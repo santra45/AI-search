@@ -72,7 +72,7 @@ class SSW_Shortcode {
         // Default attributes
         $atts = shortcode_atts([
             'placeholder' => __('Search products...', 'semantic-search-woo'),
-            'limit' => 4,
+            'limit' => 12,
             'show_history' => 'true',
             'layout' => 'default',
             'columns' => 4

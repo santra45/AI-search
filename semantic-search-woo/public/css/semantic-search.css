@@ -1,0 +1,581 @@
+/* Semantic Search Frontend Styles */
+.elementor-shortcode .ssw-search-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+    font-family: inherit;
+}
+
+/* Search Bar Styles */
+.elementor-shortcode .ssw-search-bar {
+    position: relative;
+    margin-bottom: 20px;
+}
+
+.elementor-shortcode .ssw-search-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    background: #fff;
+    border: 2px solid #e0e0e0;
+    border-radius: 50px;
+    padding: 12px 20px;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.elementor-shortcode .ssw-search-input-wrapper:focus-within {
+    border-color: #0073aa;
+    box-shadow: 0 4px 16px rgba(0, 115, 170, 0.2);
+    transform: translateY(-1px);
+}
+
+.elementor-shortcode .ssw-search-input {
+    flex: 1;
+    border: none;
+    outline: none;
+    font-size: 16px;
+    padding: 8px 12px;
+    background: transparent;
+}
+
+.elementor-shortcode .ssw-search-input::placeholder {
+    color: #999;
+}
+
+.elementor-shortcode .ssw-search-button,
+.elementor-shortcode .ssw-clear-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.elementor-shortcode .ssw-search-button {
+    color: #0073aa;
+}
+
+.elementor-shortcode .ssw-search-button:hover {
+    background: rgba(0, 115, 170, 0.1);
+}
+
+.elementor-shortcode .ssw-clear-button {
+    color: #666;
+    margin-left: 8px;
+}
+
+.elementor-shortcode .ssw-clear-button:hover {
+    background: rgba(0, 0, 0, 0.1);
+}
+
+/* Loading Indicator */
+.elementor-shortcode .ssw-search-loading {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+    padding: 10px;
+    background: rgba(0, 115, 170, 0.1);
+    border-radius: 8px;
+    color: #0073aa;
+    font-size: 14px;
+}
+
+.elementor-shortcode .ssw-spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(0, 115, 170, 0.3);
+    border-top: 2px solid #0073aa;
+    border-radius: 50%;
+    animation: ssw-spin 1s linear infinite;
+}
+
+@keyframes ssw-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Suggestions Dropdown */
+.elementor-shortcode .ssw-suggestions-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    max-height: 300px;
+    overflow-y: auto;
+    margin-top: 8px;
+    animation: ssw-dropdown-fade-in 0.2s ease;
+}
+
+@keyframes ssw-dropdown-fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.elementor-shortcode .ssw-suggestions-content {
+    padding: 8px 0;
+}
+
+.elementor-shortcode .ssw-suggestion-item {
+    padding: 12px 20px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.elementor-shortcode .ssw-suggestion-item:last-child {
+    border-bottom: none;
+}
+
+.elementor-shortcode .ssw-suggestion-item:hover {
+    background: #f8f9fa;
+}
+
+.elementor-shortcode .ssw-suggestion-type {
+    font-size: 12px;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+}
+
+.elementor-shortcode .ssw-suggestion-text {
+    font-size: 14px;
+    color: #333;
+}
+
+.elementor-shortcode .ssw-suggestion-highlight {
+    color: #0073aa;
+    font-weight: 600;
+}
+
+/* Search History */
+.elementor-shortcode .ssw-search-history {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 20px;
+}
+
+.elementor-shortcode .ssw-history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.elementor-shortcode .ssw-history-header h4 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+}
+
+.elementor-shortcode .ssw-clear-history {
+    background: none;
+    border: none;
+    color: #666;
+    cursor: pointer;
+    font-size: 12px;
+    text-decoration: underline;
+}
+
+.elementor-shortcode .ssw-history-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.elementor-shortcode .ssw-history-item {
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 20px;
+    padding: 6px 12px;
+    font-size: 12px;
+    color: #666;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.elementor-shortcode .ssw-history-item:hover {
+    background: #0073aa;
+    color: white;
+    border-color: #0073aa;
+}
+
+/* Results Container */
+.elementor-shortcode .ssw-results-container {
+    margin-top: 20px;
+}
+
+.elementor-shortcode .ssw-results-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.elementor-shortcode .ssw-results-title {
+    margin: 0;
+    font-size: 18px;
+    color: #333;
+}
+
+.elementor-shortcode .ssw-results-meta {
+    display: flex;
+    gap: 16px;
+    font-size: 14px;
+    color: #666;
+}
+
+/* Products Grid */
+.elementor-shortcode .ssw-products-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+/* Skeleton Loader */
+.elementor-shortcode .ssw-skeleton-loader {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+}
+
+.elementor-shortcode .ssw-skeleton-card {
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.elementor-shortcode .ssw-skeleton-image {
+    height: 200px;
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: ssw-shimmer 1.5s infinite;
+}
+
+.elementor-shortcode .ssw-skeleton-content {
+    padding: 16px;
+}
+
+.elementor-shortcode .ssw-skeleton-title {
+    height: 16px;
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: ssw-shimmer 1.5s infinite;
+    border-radius: 4px;
+    margin-bottom: 12px;
+}
+
+.elementor-shortcode .ssw-skeleton-price {
+    height: 14px;
+    width: 60%;
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: ssw-shimmer 1.5s infinite;
+    border-radius: 4px;
+    margin-bottom: 16px;
+}
+
+.elementor-shortcode .ssw-skeleton-button {
+    height: 36px;
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: ssw-shimmer 1.5s infinite;
+    border-radius: 6px;
+}
+
+@keyframes ssw-shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* Product Cards */
+.elementor-shortcode .ssw-product-card {
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    cursor: pointer;
+    animation: ssw-fade-in 0.5s ease;
+}
+
+@keyframes ssw-fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.elementor-shortcode .ssw-product-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.elementor-shortcode .ssw-product-image {
+    position: relative;
+    height: 200px;
+    overflow: hidden;
+    background: #f8f9fa;
+}
+
+.elementor-shortcode .ssw-product-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.elementor-shortcode .ssw-product-card:hover .elementor-shortcode .ssw-product-image img {
+    transform: scale(1.05);
+}
+
+.elementor-shortcode .ssw-product-badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: #f44336;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.elementor-shortcode .ssw-product-content {
+    padding: 16px;
+}
+
+.elementor-shortcode .ssw-product-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+    margin: 0 0 8px 0;
+    line-height: 1.4;
+    overflow: hidden;
+    /* Standard property */
+    line-clamp: 2;
+    /* Webkit prefixes */
+    -webkit-line-clamp: 2;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    /* Fallback for browsers that don't support line-clamp */
+    max-height: 2.8em; /* 2 lines * 1.4 line-height */
+}
+
+.elementor-shortcode .ssw-product-price {
+    font-size: 18px;
+    font-weight: 700;
+    color: #0073aa;
+    margin-bottom: 12px;
+}
+
+.elementor-shortcode .ssw-product-price .sale-price {
+    color: #f44336;
+    margin-right: 8px;
+}
+
+.elementor-shortcode .ssw-product-price .regular-price {
+    color: #999;
+    text-decoration: line-through;
+    font-size: 14px;
+    font-weight: 400;
+}
+
+.elementor-shortcode .ssw-product-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.elementor-shortcode .ssw-add-to-cart,
+.elementor-shortcode .ssw-select-options {
+    flex: 1;
+    padding: 10px 16px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+}
+
+.elementor-shortcode .ssw-add-to-cart {
+    background: #0073aa;
+    color: white;
+}
+
+.elementor-shortcode .ssw-add-to-cart:hover {
+    background: #005a87;
+    transform: translateY(-1px);
+}
+
+.elementor-shortcode .ssw-add-to-cart.loading {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+.elementor-shortcode .ssw-select-options {
+    background: #f8f9fa;
+    color: #333;
+    border: 1px solid #ddd;
+}
+
+.elementor-shortcode .ssw-select-options:hover {
+    background: #e9ecef;
+    border-color: #0073aa;
+    color: #0073aa;
+}
+
+.elementor-shortcode .ssw-out-of-stock {
+    flex: 1;
+    padding: 10px 16px;
+    background: #f8f9fa;
+    color: #666;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+    text-align: center;
+    cursor: not-allowed;
+}
+
+/* Load More */
+.elementor-shortcode .ssw-load-more-container {
+    text-align: center;
+    margin-top: 30px;
+}
+
+.elementor-shortcode .ssw-load-more {
+    background: #0073aa;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.elementor-shortcode .ssw-load-more:hover {
+    background: #005a87;
+    transform: translateY(-1px);
+}
+
+.elementor-shortcode .ssw-load-more.loading {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+/* No Results */
+.elementor-shortcode .ssw-no-results {
+    text-align: center;
+    padding: 60px 20px;
+    color: #666;
+}
+
+.elementor-shortcode .ssw-no-results-icon {
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+
+.elementor-shortcode .ssw-no-results h3 {
+    margin: 0 0 8px 0;
+    font-size: 18px;
+    color: #333;
+}
+
+.elementor-shortcode .ssw-no-results p {
+    margin: 0;
+    font-size: 14px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .elementor-shortcode .ssw-search-container {
+        padding: 15px;
+    }
+    
+    .elementor-shortcode .ssw-products-grid {
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+    }
+    
+    .elementor-shortcode .ssw-skeleton-loader {
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+    }
+    
+    .elementor-shortcode .ssw-search-input-wrapper {
+        padding: 10px 16px;
+    }
+    
+    .elementor-shortcode .ssw-search-input {
+        font-size: 16px; /* Prevent zoom on iOS */
+    }
+    
+    .elementor-shortcode .ssw-filters-content {
+        padding: 16px;
+    }
+    
+    .elementor-shortcode .ssw-results-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+}
+
+@media (max-width: 480px) {
+    .elementor-shortcode .ssw-products-grid {
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 12px;
+    }
+    
+    .elementor-shortcode .ssw-skeleton-loader {
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 12px;
+    }
+    
+    .elementor-shortcode .ssw-product-image {
+        height: 150px;
+    }
+    
+    .elementor-shortcode .ssw-product-content {
+        padding: 12px;
+    }
+    
+    .elementor-shortcode .ssw-product-title {
+        font-size: 14px;
+    }
+    
+    .elementor-shortcode .ssw-product-price {
+        font-size: 16px;
+    }
+}

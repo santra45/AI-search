@@ -179,6 +179,11 @@ def build_product_text(p: dict) -> str:
     brand = p.get("brand", "").strip()
     if brand:
         parts.append(f"Brand: {brand}")
+
+    gender = p.get("gender", "").strip()
+    if gender:
+        parts.append(f"Gender: {gender}")
+        print(f"Gender: {gender}")
     
     # ── 2. Categories (store owner already categorized correctly) ──────────
     cats_str = resolve_list_or_string(p.get("categories", []))
@@ -257,6 +262,7 @@ def extract_payload(p: dict) -> dict:
     return {
         "sku":            p.get("sku", ""),
         "brand":          p.get("brand", ""),
+        "gender":         p.get("gender", ""),
         "name":           p.get("name", ""),
         "permalink":      p.get("permalink", ""),
         "price":          float(price),

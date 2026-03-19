@@ -3,25 +3,13 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from backend.app.services.embedder import embed_query
 from backend.app.services.qdrant_service import search_products
-from backend.app.services.cache_service import (
-    get_cached_embedding,
-    set_cached_embedding,
-    get_cached_results,
-    set_cached_results,
-)
-from backend.app.services.wordpress_service import (
-    search_wordpress_fallback,
-    should_trigger_fallback,
-)
+from backend.app.services.cache_service import (get_cached_embedding, set_cached_embedding, get_cached_results, set_cached_results)
+from backend.app.services.wordpress_service import (search_wordpress_fallback, should_trigger_fallback)
 from backend.app.services.intent_service import analyze_intent
 from backend.app.services.rerank_service import extract_keywords, filter_and_rerank
+from backend.app.services.llm_rerank_service import llm_rerank_products, should_use_llm_reranking
 import time
-from backend.app.services.license_service import (
-    validate_license_key,
-    increment_search_count,
-    check_search_quota,
-    log_search,
-)
+from backend.app.services.license_service import (validate_license_key, increment_search_count, check_search_quota, log_search)
 from backend.app.services.database import get_db
 from urllib.parse import urlparse
 
@@ -61,7 +49,7 @@ async def search(req: SearchRequest, request: Request, db: Session = Depends(get
                 status_code=403,
                 detail=f"Domain not authorized. License valid for: {allowed_domain}",
             )
-
+    print(f"domain validation took: {time.time() - start_time}")
     # Step 2 — check monthly quota
     if not check_search_quota(db, client_id, license_data["search_limit"]):
         raise HTTPException(
@@ -70,6 +58,7 @@ async def search(req: SearchRequest, request: Request, db: Session = Depends(get
         )
 
     query = req.query.strip().lower()
+    print(f"Search quota took: {time.time() - start_time}")
 
     # Step 3 — check results cache
     cached_results = get_cached_results(client_id, query)
@@ -87,6 +76,7 @@ async def search(req: SearchRequest, request: Request, db: Session = Depends(get
             "cached": True,
             "results": cached_results,
         }
+    print(f"Cache check took: {time.time() - start_time}")
 
     # ─── INTENT ANALYSIS (conditional) ────────────────────────────────────────
     if req.enable_intent:
@@ -119,7 +109,7 @@ async def search(req: SearchRequest, request: Request, db: Session = Depends(get
     # Step 5 — search Qdrant
     # Fetch 2× the requested limit so that after keyword filtering
     # we still have enough candidates to fill the requested result count.
-    fetch_limit = req.limit * 2
+    fetch_limit = req.limit * 5
     results = search_products(
         client_id=client_id,
         query_vector=query_vector,
@@ -139,25 +129,40 @@ async def search(req: SearchRequest, request: Request, db: Session = Depends(get
         f"🔑 Keywords: gender={keywords['gender']} colors={keywords['colors']} materials={keywords['materials']}"
     )
     results = filter_and_rerank(results, keywords, req.limit)
+    print(f"Keyword filtering took: {time.time() - start_time}")
+
+    # Step 5c — LLM re-ranking for complex queries
+    # Uses Gemini to analyze semantic relevance and filter out irrelevant products
+    if should_use_llm_reranking(req.query, results):
+        print(f"🤖 Applying LLM re-ranking for query: '{req.query}'")
+        llm_results = llm_rerank_products(req.query, results, req.limit)
+        print(f"LLM re-ranking took: {time.time() - start_time}")
+        if llm_results is not None:
+            print(f"🤖 LLM re-ranked {len(results)} → {len(llm_results)} products")
+            results = llm_results
+        else:
+            print(f"🤖 LLM re-ranking failed, using filtered results")
+    else:
+        print(f"⚡ Skipping LLM re-ranking for simple query: '{req.query}'")
 
     # Step 5a — check if fallback should be triggered
-    # if should_trigger_fallback(results):
-    #     print(f"🔄 Triggering WordPress fallback for query: '{query}' (max score: {max(r['score'] for r in results) if results else 0})")
-
-    #     # Try WordPress fallback search
-    #     fallback_results = await search_wordpress_fallback(
-    #         client_id=client_id,
-    #         query=req.query,
-    #         license_key=req.license_key,
-    #         limit=req.limit
-    #     )
-
-    #     if fallback_results:
-    #         print(f"✅ WordPress fallback returned {len(fallback_results)} results")
-    #         results = fallback_results
-    #     else:
-    #         print(f"❌ WordPress fallback returned no results, using empty result set")
-    #         results = []
+    #if should_trigger_fallback(results):
+    #    print(f"🔄 Triggering WordPress fallback for query: '{req.query}' (max score: {max(r['score'] #for r in results) if results else 0})")
+    #    
+    #    # Try WordPress fallback search
+    #    fallback_results = await search_wordpress_fallback(
+    #        client_id=client_id,
+    #        query=req.query,
+    #        license_key=req.license_key,
+    #        limit=req.limit
+    #    )
+    #
+    #    if fallback_results:
+    #        print(f"✅ WordPress fallback returned {len(fallback_results)} results")
+    #        results = fallback_results
+    #    else:
+    #        print(f"❌ WordPress fallback returned no results, using empty result set")
+    #        results = []
 
     # Step 6 — cache results
     set_cached_results(client_id, query, results)

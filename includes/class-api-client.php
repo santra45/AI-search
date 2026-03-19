@@ -33,7 +33,7 @@ class SSW_API_Client {
         }
         
         $response = wp_remote_post($this->api_url . '/api/search', [
-            'timeout' => 4,      // 4 seconds max — fallback if slow
+            'timeout' => 10,      // 10 seconds max — fallback if slow
             'headers' => ['Content-Type' => 'application/json'],
             'body'    => json_encode($payload)
         ]);

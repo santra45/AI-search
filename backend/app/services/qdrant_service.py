@@ -12,24 +12,25 @@ qdrant = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
 
 # ─── Collection Naming ─────────────────────────────────────────────────────────
 
-def get_collection_name(client_id: str) -> str:
+def get_collection_name(client_id: str, domain: str) -> str:
     """
     Derive a safe Qdrant collection name from a client_id.
     Format: products_<sanitized_client_id>
     Only alphanumerics and underscores are kept; everything else becomes '_'.
     """
-    safe = re.sub(r"[^a-zA-Z0-9]", "_", client_id)
-    return f"products_{safe}"
+    client_safe = re.sub(r"[^a-zA-Z0-9]", "_", client_id)
+    domain_safe = re.sub(r"[^a-zA-Z0-9]", "_", domain)
+    return f"products_{domain_safe}_{client_safe}"
 
 
 # ─── Collection Bootstrap ──────────────────────────────────────────────────────
 
-def ensure_collection_exists(client_id: str) -> str:
+def ensure_collection_exists(client_id: str, domain: str) -> str:
     """
     Create the client's Qdrant collection if it does not exist yet.
     Returns the collection name so callers can chain it.
     """
-    coll = get_collection_name(client_id)
+    coll = get_collection_name(client_id, domain)
     existing = {c.name for c in qdrant.get_collections().collections}
     if coll not in existing:
         qdrant.create_collection(
@@ -45,8 +46,8 @@ def ensure_collection_exists(client_id: str) -> str:
 
 # ─── Core Operations ───────────────────────────────────────────────────────────
 
-def product_exists(client_id: str, product_id: str) -> bool:
-    coll = ensure_collection_exists(client_id)
+def product_exists(client_id: str, domain: str, product_id: str) -> bool:
+    coll = ensure_collection_exists(client_id, domain)
     point_uuid = str(uuid.uuid5(
         uuid.NAMESPACE_DNS,
         f"{client_id}-{product_id}"
@@ -64,6 +65,7 @@ def product_exists(client_id: str, product_id: str) -> bool:
 
 def search_products(
     client_id: str,
+    domain:str,
     query_vector: list,
     limit: int = 10,
     min_price: float = None,
@@ -71,7 +73,7 @@ def search_products(
     only_in_stock: bool = False
 ) -> list:
 
-    coll = ensure_collection_exists(client_id)
+    coll = ensure_collection_exists(client_id, domain)
 
     # Build dynamic filters (no client_id filter needed — collection IS the client)
     must_conditions = []
@@ -138,8 +140,8 @@ def search_products(
     return results
 
 
-def upsert_product(client_id: str, product_id: str, vector: list, payload: dict):
-    coll = ensure_collection_exists(client_id)
+def upsert_product(client_id: str, domain: str, product_id: str, vector: list, payload: dict):
+    coll = ensure_collection_exists(client_id, domain)
 
     point_uuid = str(uuid.uuid5(
         uuid.NAMESPACE_DNS,
@@ -161,8 +163,8 @@ def upsert_product(client_id: str, product_id: str, vector: list, payload: dict)
     )
 
 
-def delete_product(client_id: str, product_id: str):
-    coll = ensure_collection_exists(client_id)
+def delete_product(client_id: str, domain: str, product_id: str):
+    coll = ensure_collection_exists(client_id, domain)
 
     point_uuid = str(uuid.uuid5(
         uuid.NAMESPACE_DNS,
@@ -175,9 +177,9 @@ def delete_product(client_id: str, product_id: str):
     )
 
 
-def get_client_product_count(client_id: str) -> int:
+def get_client_product_count(client_id: str, domain: str) -> int:
     """Count how many products are indexed for a client."""
-    coll = get_collection_name(client_id)
+    coll = get_collection_name(client_id, domain)
     existing = {c.name for c in qdrant.get_collections().collections}
     if coll not in existing:
         return 0  # Collection doesn't exist yet → 0 products
@@ -188,13 +190,13 @@ def get_client_product_count(client_id: str) -> int:
 
 # ─── Admin / Lifecycle ─────────────────────────────────────────────────────────
 
-def delete_client_collection(client_id: str) -> bool:
+def delete_client_collection(client_id: str, domain: str) -> bool:
     """
     Permanently delete the entire Qdrant collection for a client.
     Use with caution — all vectors and payloads are destroyed.
     Returns True if deleted, False if the collection did not exist.
     """
-    coll = get_collection_name(client_id)
+    coll = get_collection_name(client_id, domain)
     existing = {c.name for c in qdrant.get_collections().collections}
     if coll not in existing:
         return False

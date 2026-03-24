@@ -36,6 +36,7 @@ async def search(req: SearchRequest, request: Request, db: Session = Depends(get
         raise HTTPException(status_code=403, detail=str(e))
 
     client_id = license_data["client_id"]
+    domain = license_data["domain"]
 
     # CRITICAL: Enforce domain authorization
     origin = request.headers.get("origin") or request.headers.get("referer")
@@ -61,7 +62,7 @@ async def search(req: SearchRequest, request: Request, db: Session = Depends(get
     print(f"Search quota took: {time.time() - start_time}")
 
     # Step 3 — check results cache
-    cached_results = get_cached_results(client_id, query)
+    cached_results = get_cached_results(f"{client_id}_{domain}", query)
     if cached_results is not None:
         print(f"⚡ Cache HIT (results): '{query}'")
         response_time = int((time.time() - start_time) * 1000)
@@ -112,6 +113,7 @@ async def search(req: SearchRequest, request: Request, db: Session = Depends(get
     fetch_limit = req.limit * 5
     results = search_products(
         client_id=client_id,
+        domain=domain,
         query_vector=query_vector,
         limit=fetch_limit,
         min_price=min_price,
@@ -165,7 +167,7 @@ async def search(req: SearchRequest, request: Request, db: Session = Depends(get
     #        results = []
 
     # Step 6 — cache results
-    set_cached_results(client_id, query, results)
+    set_cached_results(f"{client_id}_{domain}", query, results)
 
     # Step 7 — track usage
     response_time = int((time.time() - start_time) * 1000)

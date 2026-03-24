@@ -42,9 +42,9 @@ def process_upsert(product: dict, action: str, client_id: str, db: Session) -> d
     # CRITICAL: Check product limit before indexing
     try:
         license_data = get_client_license(db, client_id)
-        current_count = get_client_product_count(client_id)
+        current_count = get_client_product_count(client_id, license_data["domain"])
 
-        exists = product_exists(client_id, product_id)
+        exists = product_exists(client_id, license_data["domain"], product_id)
 
         # Only block NEW products
         if not exists and current_count >= license_data["product_limit"]:
@@ -69,7 +69,7 @@ def process_upsert(product: dict, action: str, client_id: str, db: Session) -> d
     payload = extract_payload(product)
     payload["embedded_text"] = text
 
-    upsert_product(client_id, product_id, vector, payload)
+    upsert_product(client_id, license_data["domain"], product_id, vector, payload)
     invalidate_client_results(client_id)
     if not exists:
         increment_ingest_count(db, client_id, count=1)

@@ -46,6 +46,7 @@ def dashboard_stats(
     client = get_client(get_license_key(authorization, license_key), db)
 
     client_id = client["client_id"]
+    domain    = client["domain"]
     month     = datetime.utcnow().strftime("%Y-%m")
 
     # Usage this month
@@ -59,7 +60,7 @@ def dashboard_stats(
     ingest_count = usage.ingest_count if usage else 0
 
     # Products indexed in Qdrant
-    indexed_count = get_client_product_count(client_id)
+    indexed_count = get_client_product_count(client_id, domain)
 
     # Search quota percentage
     search_limit   = client["search_limit"]
@@ -257,8 +258,9 @@ def status_check(
     client    = get_client(get_license_key(authorization, license_key), db)
 
     client_id = client["client_id"]
+    domain    = client["domain"]
 
-    indexed_count = get_client_product_count(client_id)
+    indexed_count = get_client_product_count(client_id, domain)
 
     # Check webhooks registered in WooCommerce
     # (We store webhook IDs in license_keys table — added later)

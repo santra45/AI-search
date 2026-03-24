@@ -52,13 +52,14 @@ def ingest(req: IngestRequest, request: Request, db: Session = Depends(get_db)):
         raise HTTPException(status_code=403, detail=str(e))
 
     client_id = license_data["client_id"]
+    domain    = license_data["domain"]
 
     # CRITICAL: Enforce secure domain authorization
     authorizer = DomainAuthorizer(db)
     authorizer.validate_request(request, license_data)
 
     # CRITICAL: Check total indexed count + incoming count against plan limit
-    current_count = get_client_product_count(client_id)
+    current_count = get_client_product_count(client_id, domain)
     incoming_count = len(req.products)
     total_after_ingest = current_count + incoming_count
     
@@ -78,7 +79,7 @@ def ingest(req: IngestRequest, request: Request, db: Session = Depends(get_db)):
             vector  = embed_document(text)
             payload = extract_payload(p)
             payload["embedded_text"] = text
-            upsert_product(client_id, product.product_id, vector, payload)
+            upsert_product(client_id, domain, product.product_id, vector, payload)
             success.append(product.product_id)
         except Exception as e:
             failed.append({"product_id": product.product_id, "error": str(e)})

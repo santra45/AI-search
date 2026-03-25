@@ -164,6 +164,60 @@ $sync_status_text = match($progress['status']) {
                             </p>
                         </td>
                     </tr>
+                    <tr>
+                        <th>
+                            <label for="ssw-llm-provider">LLM Provider</label>
+                        </th>
+                        <td>
+                            <select id="ssw-llm-provider" name="llm_provider" style="min-width:200px;">
+                                <option value="">Select LLM Provider</option>
+                                <option value="gemini" <?= selected(get_option('ssw_llm_provider', ''), 'gemini') ?>>
+                                    Google Gemini
+                                </option>
+                                <option value="openai" <?= selected(get_option('ssw_llm_provider', ''), 'openai') ?>>
+                                    OpenAI ChatGPT
+                                </option>
+                                <option value="anthropic" <?= selected(get_option('ssw_llm_provider', ''), 'anthropic') ?>>
+                                    Anthropic Claude
+                                </option>
+                            </select>
+                            <p class="ssw-field-desc">
+                                Choose the LLM provider for product re-ranking and semantic analysis.
+                            </p>
+                        </td>
+                    </tr>
+                    <tr id="ssw-llm-model-row" style="display:none;">
+                        <th>
+                            <label for="ssw-llm-model">LLM Model</label>
+                        </th>
+                        <td>
+                            <select id="ssw-llm-model" name="llm_model" style="min-width:200px;">
+                                <option value="">Select Provider First</option>
+                            </select>
+                            <p class="ssw-field-desc">
+                                Select the specific model to use for the selected provider.
+                            </p>
+                        </td>
+                    </tr>
+                    <tr id="ssw-llm-api-key-row" style="display:none;">
+                        <th>
+                            <label for="ssw-llm-api-key">LLM API Key</label>
+                        </th>
+                        <td>
+                            <input
+                                type="password"
+                                id="ssw-llm-api-key"
+                                name="llm_api_key"
+                                value="<?= esc_attr(get_option('ssw_llm_api_key', '')) ?>"
+                                placeholder="Enter your API key..."
+                                style="min-width:300px;"
+                            />
+                            <p class="ssw-field-desc">
+                                Your private API key for the selected LLM provider.
+                                This key will be used instead of the backend's default key.
+                            </p>
+                        </td>
+                    </tr>
                 </table>
 
                 <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--ssw-gray-200);">

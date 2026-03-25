@@ -398,12 +398,71 @@
             // Register webhooks button
             $('#ssw-register-webhooks').on('click', () => this.registerWebhooksManual());
 
+            // LLM Provider change handler
+            $('#ssw-llm-provider').on('change', () => this.handleProviderChange());
+
             // Save settings — re-register webhooks if license key changed
             $('#ssw-settings-form').on('submit', (e) => {
                 e.preventDefault();
                 this.saveSettings();
-                window.location.reload();
             });
+
+            // Initialize provider-specific fields on page load
+            this.handleProviderChange();
+        },
+
+        handleProviderChange() {
+            const provider = $('#ssw-llm-provider').val();
+            const $modelRow = $('#ssw-llm-model-row');
+            const $apiKeyRow = $('#ssw-llm-api-key-row');
+            const $modelSelect = $('#ssw-llm-model');
+
+            // Model options for each provider
+            const models = {
+                gemini: [
+                    { value: 'gemini-1.5-flash', text: 'Gemini 1.5 Flash (Fast)' },
+                    { value: 'gemini-1.5-pro', text: 'Gemini 1.5 Pro (Balanced)' },
+                    { value: 'gemini-1.0-pro', text: 'Gemini 1.0 Pro (Legacy)' },
+                    { value: 'gemma-3-27b-it', text: 'Gemma 3 27B (Experimental)' }
+                ],
+                openai: [
+                    { value: 'gpt-4o', text: 'GPT-4o (Latest)' },
+                    { value: 'gpt-4o-mini', text: 'GPT-4o Mini (Fast)' },
+                    { value: 'gpt-4-turbo', text: 'GPT-4 Turbo' },
+                    { value: 'gpt-3.5-turbo', text: 'GPT-3.5 Turbo (Legacy)' }
+                ],
+                anthropic: [
+                    { value: 'claude-3-5-sonnet-20241022', text: 'Claude 3.5 Sonnet (Latest)' },
+                    { value: 'claude-3-5-haiku-20241022', text: 'Claude 3.5 Haiku (Fast)' },
+                    { value: 'claude-3-opus-20240229', text: 'Claude 3 Opus (Powerful)' },
+                    { value: 'claude-3-sonnet-20240229', text: 'Claude 3 Sonnet (Legacy)' }
+                ]
+            };
+
+            if (provider && models[provider]) {
+                // Show model and API key rows
+                $modelRow.show();
+                $apiKeyRow.show();
+
+                // Clear current options
+                $modelSelect.empty();
+                $modelSelect.append('<option value="">Select a model...</option>');
+
+                // Add provider-specific models
+                models[provider].forEach(model => {
+                    $modelSelect.append(`<option value="${model.value}">${model.text}</option>`);
+                });
+
+                // Set current selection if exists
+                const currentModel = $('#ssw-llm-model').data('current') || '';
+                if (currentModel) {
+                    $modelSelect.val(currentModel);
+                }
+            } else {
+                // Hide rows if no provider selected
+                $modelRow.hide();
+                $apiKeyRow.hide();
+            }
         },
 
         testConnection() {
@@ -446,7 +505,10 @@
                 result_limit: $('#ssw-result-limit').val(),
                 wc_key:       wcKey,
                 wc_secret:    wcSecret,
-                enable_intent: $('#ssw-enable-intent').is(':checked') ? 1 : 0
+                enable_intent: $('#ssw-enable-intent').is(':checked') ? 1 : 0,
+                llm_provider: $('#ssw-llm-provider').val(),
+                llm_model: $('#ssw-llm-model').val(),
+                llm_api_key: $('#ssw-llm-api-key').val().trim()
             }).done(res => {
                 if (res.success) {
                     showInlineResult($result, '✅ Settings saved', 'success');

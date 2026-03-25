@@ -253,6 +253,25 @@ class SSW_Admin {
         $wc_key       = sanitize_text_field($_POST['wc_key']       ?? '');
         $wc_secret    = sanitize_text_field($_POST['wc_secret']    ?? '');
         $enable_intent = (isset($_POST['enable_intent']) && (int)$_POST['enable_intent'] === 1) ? 1 : 0;
+        $llm_provider = sanitize_text_field($_POST['llm_provider'] ?? '');
+        $llm_model    = sanitize_text_field($_POST['llm_model']    ?? '');
+        $llm_api_key  = sanitize_text_field($_POST['llm_api_key'] ?? '');
+        if (!empty($llm_api_key)) {
+            $secret = $license_key;
+            $iv = random_bytes(16);
+            $key = hash('sha256', $secret, true);
+
+            $encrypted = openssl_encrypt(
+                $llm_api_key,
+                'AES-256-CBC',
+                $key,
+                OPENSSL_RAW_DATA, // Get raw bytes instead of base64
+                $iv
+            );
+
+            // Store as one clean base64 string: [16 bytes IV][Raw Encrypted Data]
+            $final = base64_encode($iv . $encrypted);
+        }
 
         if (empty($api_url)) {
             wp_send_json_error(['message' => 'API URL is required']);
@@ -261,6 +280,11 @@ class SSW_Admin {
         update_option('ssw_api_url',      rtrim($api_url, '/'));
         update_option('ssw_result_limit', max(1, min(50, $result_limit)));
         update_option('ssw_enable_intent', $enable_intent);
+
+        // Save LLM settings
+        update_option('ssw_llm_provider', $llm_provider);
+        update_option('ssw_llm_model', $llm_model);
+        update_option('ssw_llm_api_key', $final);
 
         // Always update the license key option (even if empty to clear it)
         update_option('ssw_license_key', $license_key);

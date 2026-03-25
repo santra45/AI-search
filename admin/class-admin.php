@@ -256,7 +256,11 @@ class SSW_Admin {
         $llm_provider = sanitize_text_field($_POST['llm_provider'] ?? '');
         $llm_model    = sanitize_text_field($_POST['llm_model']    ?? '');
         $llm_api_key  = sanitize_text_field($_POST['llm_api_key'] ?? '');
-        if (!empty($llm_api_key)) {
+        $existing     = get_option('ssw_llm_api_key', '');
+        $final = null;
+        
+        if ($llm_api_key !== '') {
+            // New API key provided - encrypt it
             $secret = $license_key;
             $iv = random_bytes(16);
             $key = hash('sha256', $secret, true);
@@ -271,6 +275,9 @@ class SSW_Admin {
 
             // Store as one clean base64 string: [16 bytes IV][Raw Encrypted Data]
             $final = base64_encode($iv . $encrypted);
+        } else {
+            // No new API key - keep existing one
+            $final = $existing;;
         }
 
         if (empty($api_url)) {

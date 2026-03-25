@@ -208,14 +208,18 @@ $sync_status_text = match($progress['status']) {
                                 type="password"
                                 id="ssw-llm-api-key"
                                 name="llm_api_key"
-                                value="<?= esc_attr(get_option('ssw_llm_api_key', '')) ?>"
+                                value="**************************"
                                 placeholder="Enter your API key..."
                                 style="min-width:300px;"
+                                <?php echo get_option('ssw_llm_api_key') ? 'disabled' : ''; ?>
                             />
                             <p class="ssw-field-desc">
                                 Your private API key for the selected LLM provider.
                                 This key will be used instead of the backend's default key.
                             </p>
+                            <?php if (get_option('ssw_llm_api_key')): ?>
+                                <button type="button" class="ssw-btn ssw-btn-primary" id="ssw-change-api-key">Change API Key</button>
+                            <?php endif; ?>
                         </td>
                     </tr>
                 </table>

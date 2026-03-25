@@ -19,6 +19,10 @@
         SSW_Status.init();
         SSW_Sync.init();
     });
+    $(document).on('click', '#ssw-change-api-key', function () {
+        $('#ssw-llm-api-key').prop('disabled', false).focus();
+        $('#ssw-llm-api-key').val('');
+    });
 
 
     // ============================================================
@@ -508,7 +512,7 @@
                 enable_intent: $('#ssw-enable-intent').is(':checked') ? 1 : 0,
                 llm_provider: $('#ssw-llm-provider').val(),
                 llm_model: $('#ssw-llm-model').val(),
-                llm_api_key: $('#ssw-llm-api-key').val().trim()
+                llm_api_key: $('#ssw-llm-api-key').is(':disabled') ? '' : $('#ssw-llm-api-key').val().trim()
             }).done(res => {
                 if (res.success) {
                     showInlineResult($result, '✅ Settings saved', 'success');

@@ -18,7 +18,6 @@
         SSW_Settings.init();
         SSW_Status.init();
         SSW_Sync.init();
-        SSW.handleProviderChange();
     });
     $(document).on('click', '#ssw-change-api-key', function () {
         $('#ssw-llm-api-key').prop('disabled', false).focus();
@@ -445,12 +444,39 @@
                 ]
             };
 
+            const apiKeyInstructions = {
+                gemini: `
+                    Get your API key from Google AI Studio.<br>
+                    <strong>How to get this:</strong>
+                    Go to <a href="https://aistudio.google.com/app/api-keys" target="_blank">
+                    Google AI Studio → API Keys</a>
+                    → <strong>Create API Key</strong> → copy the key here.
+                `,
+                openai: `
+                    Get your API key from the OpenAI developer dashboard.<br>
+                    <strong>How to get this:</strong>
+                    Go to <a href="https://platform.openai.com/api-keys" target="_blank">
+                    OpenAI Platform → API Keys</a>
+                    → <strong>Create new secret key</strong> → copy the key here.
+                    Note: Ensure your account has a funded usage balance.
+                `,
+                anthropic: `
+                    Get your API key from the Anthropic Console.<br>
+                    <strong>How to get this:</strong>
+                    Go to <a href="https://platform.claude.com/settings/keys" target="_blank">
+                    Anthropic Console → Settings → API Keys</a>
+                    → <strong>Create Key</strong> → copy the key here.
+                `
+            };
+
             if (provider && models[provider]) {
                 // Show model and API key rows
                 $modelRow.show();
                 $apiKeyRow.show();
 
-                // Clear current options
+                // Update API key instruction note
+                $('#ssw-llm-api-key-desc').html(apiKeyInstructions[provider]);
+
                 $modelSelect.empty();
                 $modelSelect.append('<option value="">Select a model...</option>');
 
@@ -470,6 +496,7 @@
                 // Hide rows if no provider selected
                 $modelRow.hide();
                 $apiKeyRow.hide();
+                $('#ssw-llm-api-key-desc').html('');
             }
             let previousProvider = $('#ssw-llm-provider').data('current') || '';
             $('#ssw-llm-provider').on('change', function () {
@@ -479,7 +506,6 @@
                     $('#ssw-llm-api-key').val('').prop('disabled', false);
                 }
                 previousProvider = newProvider;
-                SSW.handleProviderChange();
             });
         },
 

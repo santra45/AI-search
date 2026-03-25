@@ -23,11 +23,6 @@ class SSW_API_Client {
         $llm_provider = get_option('ssw_llm_provider', '');
         $llm_model = get_option('ssw_llm_model', '');
         $encrypted_key = get_option('ssw_llm_api_key', '');
-        if ($llm_provider && $llm_model && $encrypted_key) {
-            $payload['llm_provider'] = $llm_provider;
-            $payload['llm_model'] = $llm_model;
-            $payload['llm_api_key_encrypted'] = $encrypted_key;
-        }
         
         $payload = [
             'license_key' => $this->license_key,

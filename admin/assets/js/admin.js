@@ -18,6 +18,7 @@
         SSW_Settings.init();
         SSW_Status.init();
         SSW_Sync.init();
+        SSW.handleProviderChange();
     });
     $(document).on('click', '#ssw-change-api-key', function () {
         $('#ssw-llm-api-key').prop('disabled', false).focus();
@@ -424,22 +425,23 @@
             // Model options for each provider
             const models = {
                 gemini: [
-                    { value: 'gemini-1.5-flash', text: 'Gemini 1.5 Flash (Fast)' },
-                    { value: 'gemini-1.5-pro', text: 'Gemini 1.5 Pro (Balanced)' },
-                    { value: 'gemini-1.0-pro', text: 'Gemini 1.0 Pro (Legacy)' },
-                    { value: 'gemma-3-27b-it', text: 'Gemma 3 27B (Experimental)' }
+                    { value: 'gemini-3.1-pro-preview', text: 'Gemini 3.1 Pro (Latest)' },
+                    { value: 'gemini-2.5-pro', text: 'Gemini 2.5 Pro (Stable)' },
+                    { value: 'gemini-2.5-flash', text: 'Gemini 2.5 Flash (Fast)' },
+                    { value: 'gemini-2.5-flash-lite', text: 'Gemini 2.5 Flash Lite (Budget)' },
+                    { value: 'gemma-3-27b-it', text: 'Gemma 3 27B (Free)' }
                 ],
                 openai: [
-                    { value: 'gpt-4o', text: 'GPT-4o (Latest)' },
-                    { value: 'gpt-4o-mini', text: 'GPT-4o Mini (Fast)' },
-                    { value: 'gpt-4-turbo', text: 'GPT-4 Turbo' },
-                    { value: 'gpt-3.5-turbo', text: 'GPT-3.5 Turbo (Legacy)' }
+                    { value: 'gpt-5.4', text: 'GPT-5.4 (Latest)' },
+                    { value: 'gpt-5.4-mini', text: 'GPT-5.4 Mini (Fast)' },
+                    { value: 'gpt-5.4-nano', text: 'GPT-5.4 Nano (Budget)' },
+                    { value: 'gpt-5.2', text: 'GPT-5.2 (Previous Gen)' }
                 ],
                 anthropic: [
-                    { value: 'claude-3-5-sonnet-20241022', text: 'Claude 3.5 Sonnet (Latest)' },
-                    { value: 'claude-3-5-haiku-20241022', text: 'Claude 3.5 Haiku (Fast)' },
-                    { value: 'claude-3-opus-20240229', text: 'Claude 3 Opus (Powerful)' },
-                    { value: 'claude-3-sonnet-20240229', text: 'Claude 3 Sonnet (Legacy)' }
+                    { value: 'claude-opus-4-6', text: 'Claude Opus 4.6 (Most Powerful)' },
+                    { value: 'claude-sonnet-4-6', text: 'Claude Sonnet 4.6 (Balanced)' },
+                    { value: 'claude-haiku-4-5-20251001', text: 'Claude Haiku 4.5 (Fast)' },
+                    { value: 'claude-3-5-sonnet-20241022', text: 'Claude 3.5 Sonnet (Legacy)' }
                 ]
             };
 
@@ -458,15 +460,27 @@
                 });
 
                 // Set current selection if exists
-                const currentModel = $('#ssw-llm-model').data('current') || '';
-                if (currentModel) {
+                const currentModel = $modelSelect.data('current') || '';
+                if (currentModel && $modelSelect.find(`option[value="${currentModel}"]`).length) {
                     $modelSelect.val(currentModel);
+                } else {
+                    $modelSelect.val('');
                 }
             } else {
                 // Hide rows if no provider selected
                 $modelRow.hide();
                 $apiKeyRow.hide();
             }
+            let previousProvider = $('#ssw-llm-provider').data('current') || '';
+            $('#ssw-llm-provider').on('change', function () {
+                const newProvider = $(this).val();
+                if (previousProvider && newProvider !== previousProvider) {
+                    $('#ssw-llm-model').val('');
+                    $('#ssw-llm-api-key').val('').prop('disabled', false);
+                }
+                previousProvider = newProvider;
+                SSW.handleProviderChange();
+            });
         },
 
         testConnection() {

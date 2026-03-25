@@ -191,7 +191,8 @@ $sync_status_text = match($progress['status']) {
                             <label for="ssw-llm-model">LLM Model</label>
                         </th>
                         <td>
-                            <select id="ssw-llm-model" name="llm_model" style="min-width:200px;">
+                            <select id="ssw-llm-model" name="llm_model"
+                            data-current="<?php echo esc_attr(get_option('ssw_llm_model', '')); ?>" style="min-width:200px;">
                                 <option value="">Select Provider First</option>
                             </select>
                             <p class="ssw-field-desc">

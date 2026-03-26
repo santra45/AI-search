@@ -1,12 +1,12 @@
 <?php
 /**
  * Plugin Name:       Semantic Search for WooCommerce
- * Plugin URI:        https://yoursite.com/semantic-search
+ * Plugin URI:        https://enabling-fancy-fox.ngrok-free.app/onboarding/
  * Description:       AI-powered semantic search for WooCommerce stores.
  *                    Replaces keyword search with vector-based semantic search.
  * Version:           0.2.0
- * Author:            Your Name
- * Author URI:        https://yoursite.com
+ * Author:            Czar Group
+ * Author URI:        https://czargroup.net
  * License:           GPL v2 or later
  * Requires at least: 6.0
  * Requires PHP:      8.1
@@ -41,6 +41,9 @@ function ssw_activate(): void {
         update_option('ssw_webhook_secret', bin2hex(random_bytes(16)));
     }
 
+    // Mark setup as incomplete - user needs to complete initial setup
+    update_option('ssw_setup_completed', false);
+
     // Flush rewrite rules
     flush_rewrite_rules();
 }
@@ -67,6 +70,24 @@ function ssw_deactivate(): void {
 // Full cleanup handled by uninstall.php
 
 
+// ── Plugin Row Meta ────────────────────────────────────────────────────────────
+
+add_filter('plugin_row_meta', 'ssw_plugin_row_meta', 10, 2);
+
+function ssw_plugin_row_meta(array $links, string $file): array {
+    if (plugin_basename(__FILE__) !== $file) {
+        return $links;
+    }
+
+    // Only show setup link if setup is not completed
+    if (!get_option('ssw_setup_completed', false)) {
+        $setup_url = admin_url('admin.php?page=semantic-search-setup');
+        $links[] = '<a href="' . esc_url($setup_url) . '" style="color: #d63638; font-weight: bold;">⚡ Complete Setup</a>';
+    }
+
+    return $links;
+}
+
 // ── Check Dependencies ────────────────────────────────────────────────────────
 
 add_action('admin_notices', 'ssw_check_dependencies');
@@ -77,6 +98,17 @@ function ssw_check_dependencies(): void {
             <p>
                 <strong>Semantic Search for WooCommerce</strong>
                 requires WooCommerce to be installed and active.
+            </p>
+        </div>';
+    }
+    
+    // Show setup notice if not completed
+    if (is_admin() && !get_option('ssw_setup_completed', false)) {
+        $setup_url = admin_url('admin.php?page=semantic-search-setup');
+        echo '<div class="notice notice-warning">
+            <p>
+                <strong>Semantic Search for WooCommerce</strong>
+                is almost ready! <a href="' . esc_url($setup_url) . '" style="font-weight: bold;">Complete the setup</a> to activate AI-powered search.
             </p>
         </div>';
     }

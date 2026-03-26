@@ -3,11 +3,11 @@ from sqlalchemy.orm import sessionmaker
 import os
 
 DB_URL = (
-    f"mysql+pymysql://{os.getenv('MYSQL_USER', 'root')}:"
-    f"{os.getenv('MYSQL_PASSWORD', 'root123')}@"
-    f"{os.getenv('MYSQL_HOST', 'localhost')}:"
-    f"{os.getenv('MYSQL_PORT', '3306')}/"
-    f"{os.getenv('MYSQL_DB', 'semanticsearch')}"
+    f"mysql+pymysql://{os.getenv('MYSQL_USER')}:"
+    f"{os.getenv('MYSQL_ROOT_PASSWORD')}@"
+    f"{os.getenv('MYSQL_HOST')}:"
+    f"{os.getenv('MYSQL_PORT')}/"
+    f"{os.getenv('MYSQL_DATABASE')}"
 )
 
 engine       = create_engine(DB_URL, pool_pre_ping=True)

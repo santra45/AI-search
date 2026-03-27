@@ -87,11 +87,13 @@ async def signup_client(
         )
         
     except ValueError as e:
+        print(f"❌ Onboarding ValueError: {e}")
         return SignupResponse(
             success=False,
             error=str(e)
         )
     except Exception as e:
+        print(f"❌ Onboarding Exception: {e}")
         return SignupResponse(
             success=False,
             error="Registration failed. Please try again."

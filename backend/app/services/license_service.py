@@ -29,6 +29,15 @@ PLAN_LIMITS = {
 
 def create_client(db: Session, name: str, email: str, plan: str = "starter") -> dict:
     """Create a new client record in MySQL."""
+    # Check if email already exists
+    existing_client = db.execute(text("""
+        SELECT id, name, email, plan FROM clients 
+        WHERE email = :email AND is_active = 1
+    """), {"email": email}).fetchone()
+    
+    if existing_client:
+        raise ValueError(f"A client with email '{email}' already exists. Please use a different email address.")
+    
     client_id = str(uuid.uuid4())
 
     db.execute(text("""
@@ -39,6 +48,25 @@ def create_client(db: Session, name: str, email: str, plan: str = "starter") -> 
     db.commit()
 
     return {"id": client_id, "name": name, "email": email, "plan": plan}
+
+
+def get_client_by_email(db: Session, email: str) -> Optional[dict]:
+    """Get a client by email address."""
+    result = db.execute(text("""
+        SELECT id, name, email, plan, is_active FROM clients 
+        WHERE email = :email
+    """), {"email": email}).fetchone()
+    
+    if not result:
+        return None
+    
+    return {
+        "id": result.id,
+        "name": result.name,
+        "email": result.email,
+        "plan": result.plan,
+        "is_active": bool(result.is_active)
+    }
 
 
 def generate_license_key(

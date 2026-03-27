@@ -219,6 +219,7 @@ class SSW_Admin {
 
         $api_url     = get_option('ssw_api_url', '');
         $license_key = get_option('ssw_license_key', '');
+        $llm_api_key_encrypted = get_option('ssw_llm_api_key', '');
 
         if (empty($api_url) || empty($license_key)) {
             wp_send_json_error(['message' => 'API URL or License Key not set']);
@@ -232,6 +233,7 @@ class SSW_Admin {
                 'headers' => ['Content-Type' => 'application/json'],
                 'body'    => json_encode([
                     'license_key' => $license_key,
+                    'llm_api_key_encrypted' => $llm_api_key_encrypted,
                     'query'       => 'test connection',
                     'limit'       => 1
                 ])

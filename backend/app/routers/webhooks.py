@@ -257,7 +257,9 @@ def product_deleted(
         return {"status": "skipped", "reason": "no product id"}
 
     try:
-        delete_product(client_id, product_id)
+        # Get license data to retrieve domain
+        license_data = get_client_license(db, client_id)
+        delete_product(client_id, license_data["domain"], product_id)
         invalidate_client_results(client_id)
         print(f"🗑️  Webhook [deleted]: removed product {product_id}")
         return {"status": "deleted", "product_id": product_id}

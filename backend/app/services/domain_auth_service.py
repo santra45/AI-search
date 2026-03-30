@@ -71,6 +71,9 @@ class DomainAuthorizer:
         """Validate client IP against allowed domain."""
         client_ip = self._get_client_ip(request)
         
+        if self._is_private_ip(client_ip):
+            return
+        
         # Check if IP is in whitelist for this domain
         if not self._is_ip_allowed_for_domain(client_ip, allowed_domain):
             self._log_security_event(
@@ -128,17 +131,12 @@ class DomainAuthorizer:
                 )
         
         # Validate Host header
-        if host:
-            if host not in valid_domains and not any(host.endswith(f".{domain}") for domain in valid_domains):
-                self._log_security_event(
-                    client_id, 
-                    "host_invalid", 
-                    f"Host {host} not allowed for domain {allowed_domain}"
-                )
-                raise HTTPException(
-                    status_code=403,
-                    detail=f"Host not authorized. Expected: {allowed_domain}"
-                )
+        # ✅ Allow API domain in Host
+        api_domain = "ai-app.czar-projects.shop"
+
+        if host and host != api_domain:
+            # optional: log but don't block
+            pass
         
         # Validate X-Forwarded-Host header (for proxy setups)
         if x_forwarded_host:
@@ -154,7 +152,7 @@ class DomainAuthorizer:
                 )
         
         # At least one header must match the allowed domain
-        headers_to_check = [origin, referer, host, x_forwarded_host]
+        headers_to_check = [origin, referer, x_forwarded_host]
         matching_headers = []
         
         for header_value in headers_to_check:
@@ -251,7 +249,15 @@ class DomainAuthorizer:
             "forwarded-for",
             "forwarded"
         ]
-        
+        x_forwarded_for = request.headers.get("x-forwarded-for")
+        if x_forwarded_for:
+            # first IP = real client
+            return x_forwarded_for.split(",")[0].strip()
+
+        x_real_ip = request.headers.get("x-real-ip")
+        if x_real_ip:
+            return x_real_ip
+
         for header in ip_headers:
             ip = request.headers.get(header)
             if ip:

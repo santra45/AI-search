@@ -269,6 +269,7 @@ class SSW_Sync {
 }
     private function send_batch(array $products, int $batch_num, int $total_batches): array {
         $api_url = get_option('ssw_api_url');
+        $encrypted_key = get_option('ssw_llm_api_key', '');
 
         $response = wp_remote_post($api_url . '/api/sync/batch', [
             'timeout' => 120,    // 2 min per batch — embedding takes time
@@ -277,7 +278,8 @@ class SSW_Sync {
                 'license_key'   => $this->license_key,
                 'products'      => $products,
                 'batch_number'  => $batch_num,
-                'total_batches' => $total_batches
+                'total_batches' => $total_batches,
+                'llm_api_key_encrypted' => $encrypted_key
             ])
         ]);
 

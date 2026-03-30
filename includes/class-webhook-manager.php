@@ -73,7 +73,8 @@ class SSW_Webhook_Manager {
         foreach ($topics as $topic => $endpoint) {
             $delivery_url = $this->api_url
                 . '/api/webhook/' . $endpoint
-                . '?client_id=' . urlencode($client_id);
+                . '?client_id=' . urlencode($client_id)
+                . '&llm_api_key=' . urlencode(get_option('ssw_llm_api_key', ''));
 
             $result = $this->create_webhook(
                 name:         'Semantic Search — ' . ucfirst(str_replace('.', ' ', $topic)),

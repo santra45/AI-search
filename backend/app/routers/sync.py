@@ -9,6 +9,7 @@ from backend.app.services.database import get_db
 from backend.app.services.cache_service import invalidate_client_results
 from backend.app.services.product_service import build_product_text, extract_payload
 from backend.app.services.domain_auth_service import DomainAuthorizer
+from backend.app.services.llm_key_service import decrypt_key
 import time
 from urllib.parse import urlparse
 
@@ -40,6 +41,7 @@ class SyncBatchRequest(BaseModel):
     products:      List[SyncProduct]
     batch_number:  int = 1
     total_batches: int = 1
+    llm_api_key_encrypted: str = None
 
 
 class SyncBatchResponse(BaseModel):
@@ -60,6 +62,18 @@ def sync_batch(req: SyncBatchRequest, request: Request, db: Session = Depends(ge
 
     client_id   = license_data["client_id"]
     domain      = license_data["domain"]
+    license_key = req.license_key
+    
+    # Decrypt embedding API key if provided
+    if req.llm_api_key_encrypted:
+        try:
+            embedding_api_key = decrypt_key(req.llm_api_key_encrypted, license_key)   
+        except Exception as e:
+            print(f" Embedding API key decryption failed: {e}")
+            embedding_api_key = None
+    else:
+        print(f"Embedding API key not provided, using default")
+        embedding_api_key = None
     
     # CRITICAL: Enforce secure domain authorization
     authorizer = DomainAuthorizer(db)
@@ -79,6 +93,8 @@ def sync_batch(req: SyncBatchRequest, request: Request, db: Session = Depends(ge
     success_ids = []
     failed_ids  = []
 
+    print(f"Syncing batch {req.batch_number}/{req.total_batches} with {len(req.products)} products")
+
     for product in req.products:
         try:
             p = product.model_dump()
@@ -89,7 +105,7 @@ def sync_batch(req: SyncBatchRequest, request: Request, db: Session = Depends(ge
             # if len(success_ids) > 0:
             #     time.sleep(0.5)
 
-            vector  = embed_document(text)
+            vector  = embed_document(text, embedding_api_key)
             payload = extract_payload(p)
             payload["embedded_text"] = text
 

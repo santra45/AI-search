@@ -212,7 +212,7 @@ class SSW_Admin {
     }
 
 
-    // ── AJAX: Test Connection ──────────────────────────────────────────────────
+        // ── AJAX: Test Connection ──────────────────────────────────────────────────
 
     public function ajax_test_connection(): void {
         check_ajax_referer('ssw_nonce', 'nonce');
@@ -220,6 +220,8 @@ class SSW_Admin {
         $api_url     = get_option('ssw_api_url', '');
         $license_key = get_option('ssw_license_key', '');
         $llm_api_key_encrypted = get_option('ssw_llm_api_key', '');
+        $llm_provider = get_option('ssw_llm_provider', '');
+        $llm_model = get_option('ssw_llm_model', '');
 
         if (empty($api_url) || empty($license_key)) {
             wp_send_json_error(['message' => 'API URL or License Key not set']);
@@ -227,15 +229,15 @@ class SSW_Admin {
 
         $start    = microtime(true);
         $response = wp_remote_post(
-            $api_url . '/api/search',
+            $api_url . '/api/test-connection',
             [
-                'timeout' => 6,
+                'timeout' => 10, // Increased timeout for LLM testing
                 'headers' => ['Content-Type' => 'application/json'],
                 'body'    => json_encode([
                     'license_key' => $license_key,
                     'llm_api_key_encrypted' => $llm_api_key_encrypted,
-                    'query'       => 'test connection',
-                    'limit'       => 1
+                    'llm_provider' => $llm_provider,
+                    'llm_model' => $llm_model
                 ])
             ]
         );
@@ -248,9 +250,13 @@ class SSW_Admin {
         $code = wp_remote_retrieve_response_code($response);
         $body = json_decode(wp_remote_retrieve_body($response), true);
 
-        if ($code === 200) {
+        if ($code === 200 && $body['success']) {
+            $llm_status = 'LLM not configured';
+            if ($body['llm_configured']) {
+                $llm_status = $body['llm_working'] ? 'LLM working' : 'LLM configured but not working';
+            }
             wp_send_json_success([
-                'message' => "Connected in {$ms}ms — API is reachable"
+                'message' => "Connected in {$ms}ms — API is reachable ({$llm_status})"
             ]);
         } elseif ($code === 403) {
             wp_send_json_error(['message' => 'Invalid license key']);

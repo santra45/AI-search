@@ -23,6 +23,7 @@
             this.config = {
                 apiUrl: semanticSearchConfig.apiUrl,
                 nonce: semanticSearchConfig.nonce,
+                addToCartNonce: semanticSearchConfig.addToCartNonce,
                 ajaxUrl: semanticSearchConfig.ajaxUrl,
                 texts: semanticSearchConfig.texts,
                 limit: parseInt(this.container.data('limit')) || 12,
@@ -434,15 +435,24 @@
             
             button.addClass('loading').text('Adding...');
             
+            // Ensure we have the correct AJAX URL
+            let ajaxUrl = semanticSearchConfig.ajaxUrl;
+            if (!ajaxUrl || ajaxUrl.indexOf('admin-ajax.php') === -1) {
+                // Fallback: construct the admin-ajax.php URL
+                const currentUrl = window.location.href;
+                const baseUrl = currentUrl.split('/wp-')[0];
+                ajaxUrl = baseUrl + '/wp-admin/admin-ajax.php';
+            }
+            
             try {
                 const response = await $.ajax({
-                    url: this.config.ajaxUrl,
+                    url: ajaxUrl,
                     method: 'POST',
                     data: {
                         action: 'ssw_add_to_cart',
                         product_id: productId,
                         quantity: 1,
-                        nonce: this.config.nonce
+                        nonce: semanticSearchConfig.addToCartNonce
                     }
                 });
 

@@ -378,24 +378,26 @@
             }
 
             return `
-                <div class="ssw-product-card" data-product-id="${product.id}" data-product-url="${productUrl}">
-                    <div class="ssw-product-image">
-                        ${imageUrl ? `<img src="${imageUrl}" alt="${product.name}" loading="lazy">` : ''}
-                        ${isOnSale ? '<div class="ssw-product-badge">Sale</div>' : ''}
-                    </div>
-                    <div class="ssw-product-content">
-                        <h3 class="ssw-product-title">${product.name}</h3>
-                        ${priceHtml}
-                        <div class="ssw-product-actions">
-                            ${isInStock ? 
-                                (isVariable ? 
-                                    `<button class="ssw-select-options" data-product-id="${product.id}">${this.config.texts.selectOptions}</button>` :
-                                    `<button class="ssw-add-to-cart" data-product-id="${product.id}">${this.config.texts.addToCart}</button>`
-                                ) :
-                                `<div class="ssw-out-of-stock">${this.config.texts.outOfStock}</div>`
-                            }
+                <div class="ssw-product-card" data-product-id="${product.id}">
+                    <a href="${productUrl}"class="ssw-product-link" data-product-id="${product.id}" data-product-url="${productUrl}">
+                        <div class="ssw-product-image">
+                            ${imageUrl ? `<img src="${imageUrl}" alt="${product.name}" loading="lazy">` : ''}
+                            ${isOnSale ? '<div class="ssw-product-badge">Sale</div>' : ''}
                         </div>
-                    </div>
+                        <div class="ssw-product-content">
+                            <h3 class="ssw-product-title">${product.name}</h3>
+                            ${priceHtml}
+                            <div class="ssw-product-actions">
+                                ${isInStock ? 
+                                    (isVariable ? 
+                                        `<button class="ssw-select-options" data-product-id="${product.id}">${this.config.texts.selectOptions}</button>` :
+                                        `<button class="ssw-add-to-cart" data-product-id="${product.id}">${this.config.texts.addToCart}</button>`
+                                    ) :
+                                    `<div class="ssw-out-of-stock">${this.config.texts.outOfStock}</div>`
+                                }
+                            </div>
+                        </div>
+                    </a>
                 </div>
             `;
         }
@@ -404,27 +406,18 @@
             // Add to cart buttons
             this.productsGrid.find('.ssw-add-to-cart').on('click', (e) => {
                 e.stopPropagation();
+                e.preventDefault(); // Prevent link navigation
                 this.addToCart($(e.currentTarget));
             });
 
             // Select options buttons
             this.productsGrid.find('.ssw-select-options').on('click', (e) => {
                 e.stopPropagation();
+                e.preventDefault(); // Prevent link navigation
                 const productCard = $(e.currentTarget).closest('.ssw-product-card');
-                const url = productCard.data('product-url');
+                const url = productCard.find('.ssw-product-link').attr('href');
                 if (url) {
                     window.location.href = url;
-                }
-            });
-
-            // Product card click
-            this.productsGrid.find('.ssw-product-card').on('click', (e) => {
-                if (!$(e.target).is('button')) {
-                    const productCard = $(e.currentTarget);
-                    const url = productCard.data('product-url');
-                    if (url) {
-                        window.location.href = url;
-                    }
                 }
             });
         }

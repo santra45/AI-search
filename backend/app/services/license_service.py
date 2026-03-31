@@ -6,7 +6,7 @@ from jose import jwt, JWTError
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
-SECRET_KEY = os.getenv("JWT_SECRET", "change-this-in-production")
+SECRET_KEY = os.getenv("JWT_SECRET")
 ALGORITHM  = "HS256"
 
 PLAN_LIMITS = {

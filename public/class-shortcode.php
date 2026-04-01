@@ -40,6 +40,7 @@ class SSW_Shortcode {
                 'ajaxUrl' => admin_url('admin-ajax.php'),
                 'nonce' => wp_create_nonce('wp_rest'),
                 'addToCartNonce' => wp_create_nonce('ssw_add_to_cart_nonce'),
+                'licenseKey' => get_option('ssw_license_key', ''),
                 'currency' => get_woocommerce_currency(),
                 'currencySymbol' => get_woocommerce_currency_symbol(),
                 'currencyPosition' => get_option('woocommerce_currency_pos'),

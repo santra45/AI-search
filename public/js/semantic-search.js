@@ -25,6 +25,7 @@
                 nonce: semanticSearchConfig.nonce,
                 addToCartNonce: semanticSearchConfig.addToCartNonce,
                 ajaxUrl: semanticSearchConfig.ajaxUrl,
+                licenseKey: semanticSearchConfig.licenseKey,
                 texts: semanticSearchConfig.texts,
                 limit: parseInt(this.container.data('limit')) || 12,
                 columns: parseInt(this.container.data('columns')) || 4,
@@ -282,11 +283,20 @@
                     signal: this.abortController.signal
                 });
 
-                this.displayResults(response.data || {});
+                if (response?.data?.products && response.data.products.length > 0) {
+                    // Proper success
+                    this.displayResults(response.data);
+                } else {
+                    // Valid empty result
+                    console.log('[SSW] No semantic results found');
+                    this.showNoResults();
+                    // DO NOT fallback here
+                }
             } catch (error) {
                 if (error.name !== 'AbortError') {
                     console.error('Search failed:', error);
-                    this.showError();
+                    // Try fallback to keyword search
+                    await this.performFallbackSearch();
                 }
             } finally {
                 this.isLoading = false;
@@ -515,6 +525,39 @@
         showNoResults() {
             this.resultsContainer.hide();
             this.noResults.show();
+        }
+
+        async performFallbackSearch() {
+            try {
+                // Call keyword search fallback endpoint
+                const response = await $.ajax({
+                    url: this.config.apiUrl + 'search-fallback',
+                    method: 'POST',
+                    data: {
+                        keywords: this.currentQuery.split(' '),
+                        query: this.currentQuery,
+                        limit: this.config.limit
+                    },
+                    beforeSend: (xhr) => {
+                        xhr.setRequestHeader('X-WP-Nonce', this.config.nonce);
+                    }
+                });
+
+                // Display fallback results
+                const fallbackData = {
+                    products: response.results || [],
+                    total: response.count || 0,
+                    total_pages: Math.ceil((response.count || 0) / this.config.limit),
+                    current_page: 1,
+                    search_time: 'N/A'
+                };
+
+                this.displayResults(fallbackData);
+                console.log('[SSW] Fallback to keyword search completed');
+            } catch (fallbackError) {
+                console.error('Fallback search also failed:', fallbackError);
+                this.showError();
+            }
         }
 
         showError() {

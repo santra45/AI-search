@@ -167,14 +167,8 @@ function ssw_register_rest_routes(): void {
     register_rest_route('ssw/v1', '/search-fallback', [
         'methods'             => 'POST',
         'callback'           => 'ssw_search_fallback_endpoint',
-        'permission_callback' => 'ssw_verify_license_key',
+        'permission_callback' => '__return_true',
         'args'                => [
-            'license_key' => [
-                'required'          => true,
-                'validate_callback' => function($param) {
-                    return is_string($param) && !empty($param);
-                }
-            ],
             'keywords'    => [
                 'required'          => true,
                 'validate_callback' => function($param) {
@@ -269,8 +263,13 @@ function ssw_search_fallback_endpoint(WP_REST_Request $request): WP_REST_Respons
     $limit    = (int) $request->get_param('limit');
     if (empty($limit)) $limit = 10;
     
+    // Debug logging
+    error_log('[SSW] Fallback search - Original keywords: ' . print_r($keywords, true));
+    error_log('[SSW] Fallback search - Original query: ' . $query);
+    
     try {
         $products = ssw_keyword_search($keywords, $query, $limit);
+        error_log('[SSW] Fallback search - Products found: ' . count($products));
         
         return new WP_REST_Response([
             'success' => true,
@@ -289,26 +288,45 @@ function ssw_search_fallback_endpoint(WP_REST_Request $request): WP_REST_Respons
     }
 }
 
-function ssw_keyword_search(array $keywords, string $original_query, int $limit): array {
-    $args = [
-        'post_type'      => 'product',
-        'post_status'    => 'publish',
-        'posts_per_page' => $limit,
-        'orderby'        => 'title',
-        'order'          => 'ASC'
+function ssw_keyword_search(array $keywords, string $original_query, int $limit, int $page): array {
+    // Stop words to filter out (similar to Python version)
+    $stop_words = [
+        'a', 'an', 'and', 'are', 'as', 'at', 'be', 'by', 'for', 'from',
+        'has', 'he', 'in', 'is', 'it', 'its', 'of', 'on', 'that', 'the',
+        'to', 'was', 'will', 'with', 'i', 'you', 'your', 'we', 'our',
+        'they', 'them', 'their', 'this', 'these', 'those', 'or', 'but',
+        'not', 'no', 'can', 'could', 'would', 'should', 'have', 'had',
+        'what', 'when', 'where', 'why', 'how', 'who', 'which', 'if',
+        'do', 'does', 'did', 'get', 'got', 'go', 'went', 'come', 'came'
     ];
     
-    $tax_query = ['relation' => 'OR'];
-    $meta_query = ['relation' => 'OR'];
-    $attribute_terms = [];
+    // Extract meaningful keywords from original query
+    $cleaned = preg_replace('/[^\w\s]/', ' ', strtolower($original_query));
+    $words = array_filter(array_map('trim', explode(' ', $cleaned)));
+    $filtered_keywords = [];
     
-    // Search in categories
-    if (!empty($keywords)) {
+    foreach ($words as $word) {
+        if (!in_array($word, $stop_words) && (strlen($word) > 1 || is_numeric($word))) {
+            if (!in_array($word, $filtered_keywords)) {
+                $filtered_keywords[] = $word;
+            }
+        }
+    }
+    
+    // Use filtered keywords if available, otherwise use original keywords
+    $search_keywords = !empty($filtered_keywords) ? $filtered_keywords : $keywords;
+    
+    // Debug logging
+    error_log('[SSW] Original keywords array: ' . print_r($keywords, true));
+    error_log('[SSW] Filtered keywords: ' . print_r($filtered_keywords, true));
+    error_log('[SSW] Final search keywords: ' . print_r($search_keywords, true));
+    
+    $all_product_ids = [];
+    
+    // 1. Search by categories
+    if (!empty($search_keywords)) {
         $category_terms = [];
-        $tag_terms = [];
-        
-        foreach ($keywords as $keyword) {
-            // Find categories matching keyword
+        foreach ($search_keywords as $keyword) {
             $cat_terms = get_terms([
                 'taxonomy'   => 'product_cat',
                 'name__like' => $keyword,
@@ -318,8 +336,34 @@ function ssw_keyword_search(array $keywords, string $original_query, int $limit)
             if (!empty($cat_terms) && !is_wp_error($cat_terms)) {
                 $category_terms = array_merge($category_terms, $cat_terms);
             }
+        }
+        
+        if (!empty($category_terms)) {
+            $args = [
+                'post_type'      => 'product',
+                'post_status'    => 'publish',
+                'posts_per_page' => -1, // Get all matching
+                'fields'         => 'ids',
+                'tax_query'      => [
+                    [
+                        'taxonomy' => 'product_cat',
+                        'field'    => 'term_id',
+                        'terms'    => array_unique($category_terms),
+                        'operator' => 'IN'
+                    ]
+                ]
+            ];
             
-            // Find tags matching keyword
+            $category_query = new WP_Query($args);
+            $all_product_ids = array_merge($all_product_ids, $category_query->posts);
+            error_log('[SSW] Category search found: ' . count($category_query->posts) . ' products');
+        }
+    }
+    
+    // 2. Search by tags
+    if (!empty($search_keywords)) {
+        $tag_terms = [];
+        foreach ($search_keywords as $keyword) {
             $tag_matches = get_terms([
                 'taxonomy'   => 'product_tag',
                 'name__like' => $keyword,
@@ -329,96 +373,67 @@ function ssw_keyword_search(array $keywords, string $original_query, int $limit)
             if (!empty($tag_matches) && !is_wp_error($tag_matches)) {
                 $tag_terms = array_merge($tag_terms, $tag_matches);
             }
-
-            // Search in product attributes
-            $attribute_taxonomies = wc_get_attribute_taxonomies();
-
-            if (!empty($attribute_taxonomies)) {
-                foreach ($attribute_taxonomies as $attribute) {
-
-                    $taxonomy = wc_attribute_taxonomy_name($attribute->attribute_name);
-
-                    $attr_terms = get_terms([
-                        'taxonomy'   => $taxonomy,
-                        'name__like' => $keyword,
-                        'fields'     => 'ids'
-                    ]);
-
-                    if (!empty($attr_terms) && !is_wp_error($attr_terms)) {
-                        $attribute_terms[$taxonomy] = isset($attribute_terms[$taxonomy])
-                            ? array_merge($attribute_terms[$taxonomy], $attr_terms)
-                            : $attr_terms;
-                    }
-                }
-            }
-        }
-        
-        if (!empty($category_terms)) {
-            $tax_query[] = [
-                'taxonomy' => 'product_cat',
-                'field'    => 'term_id',
-                'terms'    => array_unique($category_terms),
-                'operator' => 'IN'
-            ];
         }
         
         if (!empty($tag_terms)) {
-            $tax_query[] = [
-                'taxonomy' => 'product_tag',
-                'field'    => 'term_id',
-                'terms'    => array_unique($tag_terms),
-                'operator' => 'IN'
+            $args = [
+                'post_type'      => 'product',
+                'post_status'    => 'publish',
+                'posts_per_page' => -1,
+                'fields'         => 'ids',
+                'tax_query'      => [
+                    [
+                        'taxonomy' => 'product_tag',
+                        'field'    => 'term_id',
+                        'terms'    => array_unique($tag_terms),
+                        'operator' => 'IN'
+                    ]
+                ]
+            ];
+            
+            $tag_query = new WP_Query($args);
+            $all_product_ids = array_merge($all_product_ids, $tag_query->posts);
+            error_log('[SSW] Tag search found: ' . count($tag_query->posts) . ' products');
+        }
+    }
+    
+    // 3. Search by title/description/SKU
+    if (!empty($search_keywords)) {
+        $sku_meta_query = ['relation' => 'OR'];
+        foreach ($search_keywords as $keyword) {
+            $sku_meta_query[] = [
+                'key'     => '_sku',
+                'value'   => $keyword,
+                'compare' => 'LIKE'
             ];
         }
-
-        // Add attribute filters
-        if (!empty($attribute_terms)) {
-
-            foreach ($attribute_terms as $taxonomy => $terms) {
-
-                $tax_query[] = [
-                    'taxonomy' => $taxonomy,
-                    'field'    => 'term_id',
-                    'terms'    => array_unique($terms),
-                    'operator' => 'IN'
-                ];
-            }
-        }
-    }
-    
-    // Search in SKU and title
-    foreach ($keywords as $keyword) {
-        $meta_query[] = [
-            'key'     => '_sku',
-            'value'   => $keyword,
-            'compare' => 'LIKE'
+        
+        $args = [
+            'post_type'      => 'product',
+            'post_status'    => 'publish',
+            'posts_per_page' => -1,
+            'fields'         => 'ids',
+            's'             => implode(' ', $search_keywords),
+            'meta_query'     => $sku_meta_query
         ];
+        
+        $title_query = new WP_Query($args);
+        $all_product_ids = array_merge($all_product_ids, $title_query->posts);
+        error_log('[SSW] Title/SKU search found: ' . count($title_query->posts) . ' products');
     }
     
-    // Add taxonomy query if we have filters
-    if (count($tax_query) > 1) {
-        $args['tax_query'] = $tax_query;
-    }
+    // Remove duplicates and limit results
+    $unique_product_ids = array_unique($all_product_ids);
+    $limited_product_ids = array_slice($unique_product_ids, 0, $limit);
     
-    // Add meta query if we have SKU searches
-    if (count($meta_query) > 1) {
-        $args['meta_query'] = $meta_query;
-    }
+    error_log('[SSW] Total unique products found: ' . count($unique_product_ids));
+    error_log('[SSW] Returning products: ' . print_r($limited_product_ids, true));
     
-    // Also search in product title as fallback
-    $args['s'] = implode(' ', $keywords);
-    
-    $query = new WP_Query($args);
     $products = [];
-    
-    if ($query->have_posts()) {
-        while ($query->have_posts()) {
-            $query->the_post();
-            $product = wc_get_product(get_the_ID());
-            
-            if ($product) {
-                $products[] = ssw_format_product_for_api($product);
-            }
+    foreach ($unique_product_ids as $product_id) {
+        $product = wc_get_product($product_id);
+        if ($product) {
+            $products[] = ssw_format_product_for_api($product);
         }
     }
     
@@ -507,7 +522,7 @@ function ssw_frontend_search_endpoint(WP_REST_Request $request): WP_REST_Respons
         
         // Fallback to keyword search
         $keywords = explode(' ', $query);
-        $products = ssw_keyword_search_with_filters($keywords, $query, $limit, $page, []);
+        $products = ssw_keyword_search($keywords, $query, $limit, $page);
         $search_time = round(microtime(true) - $start_time, 3);
         
         return new WP_REST_Response([

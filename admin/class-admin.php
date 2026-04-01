@@ -15,6 +15,7 @@ class SSW_Admin {
         add_action('wp_ajax_ssw_register_webhooks', [$this, 'ajax_register_webhooks']);
         add_action('wp_ajax_ssw_start_sync',        [$this, 'ajax_start_sync']);
         add_action('wp_ajax_ssw_next_batch',        [$this, 'ajax_next_batch']);
+        add_action('wp_ajax_ssw_cancel_sync',       [$this, 'ajax_cancel_sync']);
         add_action('wp_ajax_ssw_status_check',      [$this, 'ajax_status_check']);
         add_action('wp_ajax_ssw_reset_sync', [$this, 'ajax_reset_sync']);
         
@@ -394,6 +395,43 @@ class SSW_Admin {
         $result      = $sync->process_next_batch();
 
         wp_send_json_success($result);
+    }
+
+
+    // ── AJAX: Cancel Sync ─────────────────────────────────────────────────────
+
+    public function ajax_cancel_sync(): void {
+        check_ajax_referer('ssw_nonce', 'nonce');
+
+        $license_key = get_option('ssw_license_key', '');
+        if (empty($license_key)) {
+            wp_send_json_error(['message' => 'License key not set']);
+        }
+
+        $sync   = new SSW_Sync($license_key);
+        $result = $sync->cancel_sync();
+
+        if ($result['success']) {
+            // Also notify backend about cancellation
+            $api_url = get_option('ssw_api_url', '');
+            if (!empty($api_url)) {
+                wp_remote_post(
+                    $api_url . '/api/sync/cancel',
+                    [
+                        'timeout' => 5,
+                        'headers' => [
+                            'Authorization' => 'Bearer ' . $license_key,
+                            'Content-Type' => 'application/json'
+                        ],
+                        'body' => json_encode([
+                            'license_key' => $license_key
+                        ])
+                    ]
+                );
+            }
+        }
+
+        wp_send_json($result);
     }
 
 

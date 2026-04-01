@@ -646,6 +646,7 @@
             if (!$('#settings-panel').length) return;
 
             $('#ssw-sync-btn').on('click', () => this.start());
+            $('#ssw-cancel-sync-btn').on('click', () => this.cancel());
 
             // Resume if sync was running when page loaded
             if (SSW.sync_running) {
@@ -678,19 +679,51 @@
                     total:         res.data.total,
                     current_batch: 0,
                     total_batches: res.data.total_batches
-                });
-                this.processNext();
             });
-        },
+            this.processNext();
+        });
+    },
 
-        processNext() {
-            if (!this.running) return;
+    cancel() {
+        if (!confirm('Are you sure you want to cancel the sync? This will stop the indexing process.')) return;
 
-            ajax('ssw_next_batch').done(res => {
-                if (!res.success) {
-                    this.onError('Batch processing failed.');
-                    return;
-                }
+        const $cancelBtn = $('#ssw-cancel-sync-btn');
+        $cancelBtn.prop('disabled', true).html(
+            '<span class="ssw-spinner"></span> Cancelling...'
+        );
+
+        ajax('ssw_cancel_sync').done(res => {
+            if (res.success) {
+                this.running = false;
+                this.hideProgress();
+                
+                // Update UI to show cancelled state
+                $('#ssw-sync-btn').prop('disabled', false).text('🔄 Sync All Products');
+                $('#ssw-sync-status-text').text('⏹️ Cancelled');
+                
+                // Hide cancel button
+                $cancelBtn.remove();
+                
+                // Show success message
+                alert(`Sync cancelled. ${res.processed} products were indexed (${res.percentage}% complete).`);
+            } else {
+                alert('Failed to cancel sync: ' + (res.message || 'Unknown error'));
+                $cancelBtn.prop('disabled', false).text('⏹️ Cancel Sync');
+            }
+        }).fail(() => {
+            alert('Failed to cancel sync. Please try again.');
+            $cancelBtn.prop('disabled', false).text('⏹️ Cancel Sync');
+        });
+    },
+
+    processNext() {
+        if (!this.running) return;
+
+        ajax('ssw_next_batch').done(res => {
+            if (!res.success) {
+                this.onError('Batch processing failed.');
+                return;
+            }
 
                 this.updateProgress(res.data);
 
@@ -745,10 +778,24 @@
             $('#ssw-sync-btn').prop('disabled', true).html(
                 '<span class="ssw-spinner"></span> Syncing...'
             );
+            
+            // Add cancel button if it doesn't exist
+            if (!$('#ssw-cancel-sync-btn').length) {
+                const $cancelBtn = $('<button>')
+                    .attr('id', 'ssw-cancel-sync-btn')
+                    .addClass('ssw-btn ssw-btn-secondary')
+                    .css('margin-left', '10px')
+                    .text('⏹️ Cancel Sync')
+                    .on('click', () => this.cancel());
+                
+                $('#ssw-sync-btn').after($cancelBtn);
+            }
         },
 
         hideProgress() {
             $('#ssw-progress-wrap').slideUp(200);
+            // Remove cancel button
+            $('#ssw-cancel-sync-btn').remove();
         }
     };
 

@@ -315,6 +315,31 @@ class SSW_Sync {
         return min((int) round(($processed / $total) * 100), 100);
     }
 
+    public function cancel_sync(): array {
+        $status = get_option('ssw_sync_status', 'idle');
+        
+        if ($status !== 'running') {
+            return [
+                'success' => false,
+                'message' => 'No sync is currently running'
+            ];
+        }
+
+        // Update sync status to cancelled
+        update_option('ssw_sync_status', 'cancelled');
+        
+        // Get current progress for response
+        $progress = $this->get_progress();
+        
+        return [
+            'success' => true,
+            'message' => 'Sync cancelled successfully',
+            'processed' => $progress['processed'],
+            'total' => $progress['total'],
+            'percentage' => $progress['percentage']
+        ];
+    }
+
     public function reset(): void {
         update_option('ssw_sync_status',        'idle');
         update_option('ssw_sync_total',          0);

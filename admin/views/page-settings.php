@@ -37,6 +37,7 @@ $last_sync = $progress['started_at']
 $sync_status_text = match($progress['status']) {
     'complete' => '✅ Complete',
     'running'  => '⏳ Running...',
+    'cancelled' => '⏹️ Cancelled',
     'idle'     => '—',
     default    => '—'
 };
@@ -279,7 +280,7 @@ $sync_status_text = match($progress['status']) {
 
             <!-- Progress Bar (hidden when idle) -->
             <div id="ssw-progress-wrap"
-                 style="<?= $progress['status'] === 'running' ? '' : 'display:none;' ?>
+                 style="<?= in_array($progress['status'], ['running', 'cancelled']) ? '' : 'display:none;' ?>
                         margin-bottom:20px;">
 
                 <div class="ssw-progress-track">
@@ -316,8 +317,18 @@ $sync_status_text = match($progress['status']) {
                 >
                     <?= $progress['status'] === 'running'
                         ? '<span class="ssw-spinner"></span> Syncing...'
-                        : '🔄 Sync All Products' ?>
+                        : ' Sync All Products' ?>
                 </button>
+                
+                <?php if ($progress['status'] === 'running'): ?>
+                <button
+                    id="ssw-cancel-sync-btn"
+                    class="ssw-btn ssw-btn-secondary"
+                    style="margin-left: 10px;"
+                >
+                    Cancel Sync
+                </button>
+                <?php endif; ?>
             </div>
 
             <p style="font-size:12px;color:var(--ssw-gray-400);margin-top:10px;">

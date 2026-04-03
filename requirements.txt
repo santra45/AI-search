@@ -23,6 +23,7 @@ qdrant-client==1.6.4
 google-genai
 openai
 anthropic
+tiktoken
 
 # Data Validation
 pydantic==2.5.0

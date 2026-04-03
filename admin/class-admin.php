@@ -10,6 +10,10 @@ class SSW_Admin {
         // AJAX handlers
         add_action('wp_ajax_ssw_dashboard_stats',   [$this, 'ajax_dashboard_stats']);
         add_action('wp_ajax_ssw_analytics_data',    [$this, 'ajax_analytics_data']);
+        add_action('wp_ajax_ssw_token_usage_summary', [$this, 'ajax_token_usage_summary']);
+        add_action('wp_ajax_ssw_token_usage_models',  [$this, 'ajax_token_usage_models']);
+        add_action('wp_ajax_ssw_token_usage_hourly',  [$this, 'ajax_token_usage_hourly']);
+        add_action('wp_ajax_ssw_token_usage_stats',   [$this, 'ajax_token_usage_stats']);
         add_action('wp_ajax_ssw_test_connection',   [$this, 'ajax_test_connection']);
         add_action('wp_ajax_ssw_save_settings',     [$this, 'ajax_save_settings']);
         add_action('wp_ajax_ssw_register_webhooks', [$this, 'ajax_register_webhooks']);
@@ -86,6 +90,15 @@ class SSW_Admin {
             true
         );
 
+        // Usage module JS
+        wp_enqueue_script(
+            'ssw-usage',
+            SSW_PLUGIN_URL . 'admin/assets/js/usage.js',
+            ['jquery', 'chartjs', 'ssw-admin'],
+            SSW_VERSION,
+            true
+        );
+
         // Pass config to JS
         $sync        = new SSW_Sync(get_option('ssw_license_key', ''));
         $progress    = $sync->get_progress();
@@ -118,6 +131,7 @@ class SSW_Admin {
             <div class="ssw-nav-tabs">
                 <a href="#dashboard" class="active">📊 Dashboard</a>
                 <a href="#analytics">📈 Analytics</a>
+                <a href="#usage">💰 Usage</a>
                 <a href="#settings">⚙️ Settings</a>
                 <a href="#status">🔌 Status</a>
             </div>
@@ -126,6 +140,7 @@ class SSW_Admin {
             <?php
             require_once SSW_PLUGIN_DIR . 'admin/views/page-dashboard.php';
             require_once SSW_PLUGIN_DIR . 'admin/views/page-analytics.php';
+            require_once SSW_PLUGIN_DIR . 'admin/views/page-usage.php';
             require_once SSW_PLUGIN_DIR . 'admin/views/page-settings.php';
             require_once SSW_PLUGIN_DIR . 'admin/views/page-status.php';
             ?>
@@ -213,7 +228,159 @@ class SSW_Admin {
     }
 
 
-        // ── AJAX: Test Connection ──────────────────────────────────────────────────
+    // ── AJAX: Token Usage Summary ─────────────────────────────────────────────
+
+    public function ajax_token_usage_summary(): void {
+        check_ajax_referer('ssw_nonce', 'nonce');
+
+        $license_key = get_option('ssw_license_key', '');
+        if (empty($license_key)) {
+            wp_send_json_error(['message' => 'License key not set']);
+        }
+
+        $api_url = get_option('ssw_api_url', '');
+        if (empty($api_url)) {
+            wp_send_json_error(['message' => 'API URL not set']);
+        }
+
+        $response = wp_remote_get(
+            rtrim($api_url, '/') . '/api/token-usage/me/summary',
+            [
+                'timeout' => 10,
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $license_key,
+                ],
+            ]
+        );
+
+        if (is_wp_error($response)) {
+            wp_send_json_error(['message' => $response->get_error_message()]);
+        }
+
+        $code = wp_remote_retrieve_response_code($response);
+        $body = json_decode(wp_remote_retrieve_body($response), true);
+
+        if ($code !== 200) {
+            wp_send_json_error(['message' => $body['detail'] ?? 'API error']);
+        }
+
+        wp_send_json_success($body);
+    }
+
+
+    // ── AJAX: Token Usage Models ───────────────────────────────────────────────
+
+    public function ajax_token_usage_models(): void {
+        check_ajax_referer('ssw_nonce', 'nonce');
+
+        $license_key = get_option('ssw_license_key', '');
+        $api_url = get_option('ssw_api_url', '');
+
+        if (empty($license_key) || empty($api_url)) {
+            wp_send_json_error(['message' => 'License key or API URL not set']);
+        }
+
+        $response = wp_remote_get(
+            rtrim($api_url, '/') . '/api/token-usage/me/models',
+            [
+                'timeout' => 10,
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $license_key,
+                ],
+            ]
+        );
+
+        if (is_wp_error($response)) {
+            wp_send_json_error(['message' => $response->get_error_message()]);
+        }
+
+        $code = wp_remote_retrieve_response_code($response);
+        $body = json_decode(wp_remote_retrieve_body($response), true);
+
+        if ($code !== 200) {
+            wp_send_json_error(['message' => $body['detail'] ?? 'API error']);
+        }
+
+        wp_send_json_success($body);
+    }
+
+
+    // ── AJAX: Token Usage Hourly ───────────────────────────────────────────────
+
+    public function ajax_token_usage_hourly(): void {
+        check_ajax_referer('ssw_nonce', 'nonce');
+
+        $license_key = get_option('ssw_license_key', '');
+        $api_url = get_option('ssw_api_url', '');
+        $hours_back = (int) ($_POST['hours_back'] ?? 24);
+
+        if (empty($license_key) || empty($api_url)) {
+            wp_send_json_error(['message' => 'License key or API URL not set']);
+        }
+
+        $response = wp_remote_get(
+            rtrim($api_url, '/') . '/api/token-usage/me/hourly?hours_back=' . $hours_back,
+            [
+                'timeout' => 10,
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $license_key,
+                ],
+            ]
+        );
+
+        if (is_wp_error($response)) {
+            wp_send_json_error(['message' => $response->get_error_message()]);
+        }
+
+        $code = wp_remote_retrieve_response_code($response);
+        $body = json_decode(wp_remote_retrieve_body($response), true);
+
+        if ($code !== 200) {
+            wp_send_json_error(['message' => $body['detail'] ?? 'API error']);
+        }
+
+        wp_send_json_success($body);
+    }
+
+
+    // ── AJAX: Token Usage Stats ────────────────────────────────────────────────
+
+    public function ajax_token_usage_stats(): void {
+        check_ajax_referer('ssw_nonce', 'nonce');
+
+        $license_key = get_option('ssw_license_key', '');
+        $api_url = get_option('ssw_api_url', '');
+
+        if (empty($license_key) || empty($api_url)) {
+            wp_send_json_error(['message' => 'License key or API URL not set']);
+        }
+
+        $response = wp_remote_get(
+            rtrim($api_url, '/') . '/api/token-usage/me/stats',
+            [
+                'timeout' => 10,
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $license_key,
+                ],
+            ]
+        );
+
+        if (is_wp_error($response)) {
+            wp_send_json_error(['message' => $response->get_error_message()]);
+        }
+
+        $code = wp_remote_retrieve_response_code($response);
+        $body = json_decode(wp_remote_retrieve_body($response), true);
+
+        if ($code !== 200) {
+            wp_send_json_error(['message' => $body['detail'] ?? 'API error']);
+        }
+
+        wp_send_json_success($body);
+    }
+
+
+    // ── AJAX: Test Connection ──────────────────────────────────────────────────
 
     public function ajax_test_connection(): void {
         check_ajax_referer('ssw_nonce', 'nonce');

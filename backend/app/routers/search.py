@@ -121,7 +121,7 @@ async def search(req: SearchRequest, request: Request, db: Session = Depends(get
             print(f"Embedding API key not provided, using default")
             embedding_api_key = None
             
-        query_vector = embed_query(query, embedding_api_key)
+        query_vector = embed_query(query, embedding_api_key, client_id)
         set_cached_embedding(query, query_vector)
 
     # Step 5 — search Qdrant
@@ -169,7 +169,8 @@ async def search(req: SearchRequest, request: Request, db: Session = Depends(get
             req.limit,
             llm_provider=req.llm_provider,
             llm_model=req.llm_model,
-            llm_api_key=llm_api_key
+            llm_api_key=llm_api_key,
+            client_id=client_id,
         )
         print(f"LLM re-ranking took: {time.time() - start_time}")
         if llm_results is not None:

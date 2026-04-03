@@ -105,7 +105,7 @@ def sync_batch(req: SyncBatchRequest, request: Request, db: Session = Depends(ge
             # if len(success_ids) > 0:
             #     time.sleep(0.5)
 
-            vector  = embed_document(text, embedding_api_key)
+            vector  = embed_document(text, embedding_api_key, client_id)
             payload = extract_payload(p)
             payload["embedded_text"] = text
 

@@ -3,6 +3,7 @@ import logging
 import tiktoken
 from google import genai
 from backend.app.config import GEMINI_API_KEY, EMBED_MODEL
+from backend.app.services.token_usage_service import track_usage
 
 # ---------------------------
 # Logger Setup
@@ -68,7 +69,7 @@ def get_client(api_key: str = None):
 # ---------------------------
 # Embed Query
 # ---------------------------
-def embed_query(text: str, api_key: str = None) -> list[float]:
+def embed_query(text: str, api_key: str = None, client_id: str = "anonymous") -> list[float]:
     """
     Embed a search query using the new SDK.
     Logs token usage and estimated cost.
@@ -102,6 +103,23 @@ def embed_query(text: str, api_key: str = None) -> list[float]:
     )
     logger.info(f"🔢 Token Usage (query): {{ \"input\": {token_count}, \"total\": {token_count} }}")
     logger.info(f"💰 Estimated Cost (query): ${round(cost, 8)}")
+    
+    # Track token usage
+    try:
+        track_usage(
+            client_id=client_id,
+            query_type="embed_search",
+            llm_provider="google",
+            llm_model=EMBED_MODEL,
+            input_tokens=token_count,
+            output_tokens=0,
+            input_cost=cost,
+            output_cost=0.0,
+            request_text_length=len(text),
+            response_text_length=0
+        )
+    except Exception as e:
+        logger.warning(f"⚠️ Failed to track token usage: {e}")
 
     return result.embeddings[0].values
 
@@ -109,7 +127,7 @@ def embed_query(text: str, api_key: str = None) -> list[float]:
 # ---------------------------
 # Embed Document
 # ---------------------------
-def embed_document(text: str, api_key: str = None) -> list[float]:
+def embed_document(text: str, api_key: str = None, client_id: str = "anonymous") -> list[float]:
     """
     Embed a product document for indexing.
     Logs token usage and estimated cost.
@@ -143,5 +161,22 @@ def embed_document(text: str, api_key: str = None) -> list[float]:
     )
     logger.info(f"🔢 Token Usage (document): {{ \"input\": {token_count}, \"total\": {token_count} }}")
     logger.info(f"💰 Estimated Cost (document): ${round(cost, 8)}")
+    
+    # Track token usage
+    try:
+        track_usage(
+            client_id=client_id,
+            query_type="embed_document",
+            llm_provider="google",
+            llm_model=EMBED_MODEL,
+            input_tokens=token_count,
+            output_tokens=0,
+            input_cost=cost,
+            output_cost=0.0,
+            request_text_length=len(text),
+            response_text_length=0
+        )
+    except Exception as e:
+        logger.warning(f"⚠️ Failed to track token usage: {e}")
 
     return result.embeddings[0].values

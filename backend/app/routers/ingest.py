@@ -90,7 +90,7 @@ def ingest(req: IngestRequest, request: Request, db: Session = Depends(get_db)):
         try:
             p       = product.model_dump()
             text    = build_product_text(p)
-            vector  = embed_document(text, embedding_api_key)
+            vector  = embed_document(text, embedding_api_key, client_id)
             payload = extract_payload(p)
             payload["embedded_text"] = text
             upsert_product(client_id, domain, product.product_id, vector, payload)

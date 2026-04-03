@@ -77,7 +77,7 @@ def process_upsert(product: dict, action: str, client_id: str, db: Session, lice
 
     # Uses product_service — raw WooCommerce format with nested categories/tags/attributes
     text    = build_product_text(product)
-    vector  = embed_document(text, embedding_api_key)
+    vector  = embed_document(text, embedding_api_key, client_id)
     payload = extract_payload(product)
     payload["embedded_text"] = text
 

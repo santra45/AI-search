@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from backend.app.routers import search, ingest, webhooks, sync, dashboard, webhook_secret, onboarding, health
+from backend.app.routers import search, ingest, webhooks, sync, dashboard, webhook_secret, onboarding, health, token_usage
 
 app = FastAPI(
     title="Semantic Search API",
@@ -21,6 +21,7 @@ app.include_router(sync.router,     prefix="/api")
 app.include_router(dashboard.router, prefix="/api")
 app.include_router(webhook_secret.router, prefix="/api")
 app.include_router(health.router,  prefix="/api")
+app.include_router(token_usage.router, prefix="/api")
 app.include_router(onboarding.router)
 
 @app.get("/")

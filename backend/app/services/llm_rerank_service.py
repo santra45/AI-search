@@ -7,6 +7,7 @@ from typing import List, Dict, Optional
 from google import genai
 from openai import OpenAI
 import anthropic
+from backend.app.services.token_usage_service import track_usage
 
 # ---------------------------
 # Logger Setup
@@ -228,6 +229,7 @@ def llm_rerank_products(
     llm_provider: Optional[str] = None,
     llm_model: Optional[str] = None,
     llm_api_key: Optional[str] = None,
+    client_id: str = "anonymous"
 ) -> List[Dict]:
 
     provider = llm_provider or "gemini"
@@ -345,6 +347,23 @@ def llm_rerank_products(
 
         logger.info(f"🔢 Token Usage: {usage}")
         logger.info(f"💰 Estimated Cost: ${round(cost, 8)}")
+        
+        # Track token usage
+        try:
+            track_usage(
+                client_id=client_id,
+                query_type="product_rerank",
+                llm_provider=provider,
+                llm_model=model,
+                input_tokens=usage["input"],
+                output_tokens=usage["output"],
+                input_cost=usage["input"] * MODEL_PRICING.get(model, {}).get("input", 0),
+                output_cost=usage["output"] * MODEL_PRICING.get(model, {}).get("output", 0),
+                request_text_length=len(prompt),
+                response_text_length=len(response_text)
+            )
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to track token usage: {e}")
 
         # ---------------------------
         # Parse & Return

@@ -4,7 +4,7 @@ Token Usage API Router
 Provides endpoints for accessing token usage statistics and costs.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Header
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from typing import Optional, List
@@ -12,8 +12,18 @@ from datetime import datetime, timedelta
 
 from backend.app.services.database import get_db
 from backend.app.services.token_usage_service import TokenUsageTracker
+from backend.app.services.license_service import validate_license_key, extract_license_key_from_authorization
 
 router = APIRouter(prefix="/token-usage", tags=["token-usage"])
+
+def _get_client_from_auth(authorization: Optional[str], db: Session) -> dict:
+    token = extract_license_key_from_authorization(authorization)
+    if not token:
+        raise HTTPException(status_code=401, detail="Missing Authorization header")
+    try:
+        return validate_license_key(token, db)
+    except ValueError as e:
+        raise HTTPException(status_code=403, detail=str(e))
 
 @router.get("/client/{client_id}/stats")
 def get_client_usage_stats(
@@ -45,6 +55,25 @@ def get_client_usage_stats(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get client stats: {str(e)}")
 
+@router.get("/me/stats")
+def get_my_usage_stats(
+    authorization: Optional[str] = Header(None),
+    start_date: Optional[datetime] = Query(None, description="Start date for filtering"),
+    end_date: Optional[datetime] = Query(None, description="End date for filtering"),
+    db: Session = Depends(get_db),
+):
+    client = _get_client_from_auth(authorization, db)
+    tracker = TokenUsageTracker(db)
+    try:
+        stats = tracker.get_client_usage_stats(
+            client_id=client["client_id"],
+            start_date=start_date,
+            end_date=end_date,
+        )
+        return {"success": True, "data": stats}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get client stats: {str(e)}")
+
 @router.get("/summary")
 def get_usage_summary(
     start_date: Optional[datetime] = Query(None, description="Start date for filtering"),
@@ -71,6 +100,31 @@ def get_usage_summary(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get usage summary: {str(e)}")
+
+@router.get("/me/summary")
+def get_my_usage_summary(
+    authorization: Optional[str] = Header(None),
+    start_date: Optional[datetime] = Query(None, description="Start date for filtering"),
+    end_date: Optional[datetime] = Query(None, description="End date for filtering"),
+    db: Session = Depends(get_db),
+):
+    client = _get_client_from_auth(authorization, db)
+    tracker = TokenUsageTracker(db)
+    stats = tracker.get_client_usage_stats(
+        client_id=client["client_id"],
+        start_date=start_date,
+        end_date=end_date,
+    )
+    return {
+        "success": True,
+        "data": {
+            "client_id": client["client_id"],
+            "total_requests": stats.get("totals", {}).get("total_requests", 0),
+            "total_tokens": stats.get("totals", {}).get("total_tokens", 0),
+            "total_cost": stats.get("totals", {}).get("total_cost", 0.0),
+            "period": stats.get("period", {}),
+        },
+    }
 
 @router.get("/clients")
 def get_active_clients(
@@ -214,6 +268,67 @@ def get_model_usage(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get model usage: {str(e)}")
 
+@router.get("/me/models")
+def get_my_model_usage(
+    authorization: Optional[str] = Header(None),
+    start_date: Optional[datetime] = Query(None, description="Start date for filtering"),
+    end_date: Optional[datetime] = Query(None, description="End date for filtering"),
+    db: Session = Depends(get_db),
+):
+    client = _get_client_from_auth(authorization, db)
+    try:
+        where_clause = "WHERE client_id = :client_id"
+        params = {"client_id": client["client_id"]}
+
+        if start_date:
+            where_clause += " AND created_at >= :start_date"
+            params["start_date"] = start_date
+
+        if end_date:
+            where_clause += " AND created_at <= :end_date"
+            params["end_date"] = end_date
+
+        sql = text(f"""
+        SELECT 
+            llm_provider,
+            llm_model,
+            query_type,
+            COUNT(*) as request_count,
+            SUM(input_tokens) as total_input_tokens,
+            SUM(output_tokens) as total_output_tokens,
+            SUM(total_tokens) as total_tokens,
+            SUM(input_cost) as total_input_cost,
+            SUM(output_cost) as total_output_cost,
+            SUM(total_cost) as total_cost,
+            AVG(total_cost) as avg_cost_per_request
+        FROM token_usage_tracking
+        {where_clause}
+        GROUP BY llm_provider, llm_model, query_type
+        ORDER BY total_cost DESC
+        """)
+
+        result = db.execute(sql, params)
+        rows = result.fetchall()
+        models = []
+        for row in rows:
+            models.append({
+                "llm_provider": row.llm_provider,
+                "llm_model": row.llm_model,
+                "query_type": row.query_type,
+                "request_count": row.request_count,
+                "total_input_tokens": row.total_input_tokens,
+                "total_output_tokens": row.total_output_tokens,
+                "total_tokens": row.total_tokens,
+                "total_input_cost": float(row.total_input_cost or 0),
+                "total_output_cost": float(row.total_output_cost or 0),
+                "total_cost": float(row.total_cost or 0),
+                "avg_cost_per_request": float(row.avg_cost_per_request or 0),
+            })
+
+        return {"success": True, "data": {"period": {"start_date": start_date, "end_date": end_date}, "models": models}}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get model usage: {str(e)}")
+
 @router.get("/hourly")
 def get_hourly_usage(
     client_id: Optional[str] = Query(None, description="Filter by specific client"),
@@ -276,5 +391,52 @@ def get_hourly_usage(
             }
         }
         
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get hourly usage: {str(e)}")
+
+@router.get("/me/hourly")
+def get_my_hourly_usage(
+    authorization: Optional[str] = Header(None),
+    hours_back: int = Query(24, description="Number of hours to look back"),
+    db: Session = Depends(get_db),
+):
+    client = _get_client_from_auth(authorization, db)
+    start_date = datetime.utcnow() - timedelta(hours=hours_back)
+
+    where_clause = "WHERE created_at >= :start_date AND client_id = :client_id"
+    params = {"start_date": start_date, "client_id": client["client_id"]}
+
+    try:
+        sql = text(f"""
+        SELECT 
+            DATE_FORMAT(created_at, '%Y-%m-%d %H:00:00') as hour,
+            COUNT(*) as request_count,
+            SUM(total_tokens) as total_tokens,
+            SUM(total_cost) as total_cost
+        FROM token_usage_tracking
+        {where_clause}
+        GROUP BY DATE_FORMAT(created_at, '%Y-%m-%d %H:00:00')
+        ORDER BY hour ASC
+        """)
+
+        result = db.execute(sql, params)
+        rows = result.fetchall()
+        hourly_data = []
+        for row in rows:
+            hourly_data.append({
+                "hour": row.hour,
+                "request_count": row.request_count,
+                "total_tokens": row.total_tokens,
+                "total_cost": float(row.total_cost or 0),
+            })
+
+        return {
+            "success": True,
+            "data": {
+                "period": {"start_date": start_date, "hours_back": hours_back},
+                "client_id": client["client_id"],
+                "hourly_data": hourly_data,
+            },
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get hourly usage: {str(e)}")

@@ -60,11 +60,11 @@
 
         renderSummary(res) {
             if (!res.success || !res.data) return;
-            const data = res.data.data || res.data;
-            
-            $('#ssw-usage-total-requests').text(this.formatNumber(data.total_requests || 0));
-            $('#ssw-usage-total-tokens').text(this.formatNumber(data.total_tokens || 0));
-            $('#ssw-usage-total-cost').text('$' + Number(data.total_cost || 0).toFixed(6));
+            const payload  = res.data?.data?.data || res.data?.data || res.data;
+            const totals = payload.totals || {};
+            $('#ssw-usage-total-requests').text(this.formatNumber(totals.total_requests || 0));
+            $('#ssw-usage-total-tokens').text(this.formatNumber(totals.total_tokens || 0));
+            $('#ssw-usage-total-cost').text('$' + Number(totals.total_cost || 0).toFixed(6));
         },
 
         renderModels(res) {

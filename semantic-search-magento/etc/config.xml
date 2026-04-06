@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Store:etc/config.xsd">
+    <default>
+        <semantic_search>
+            <general>
+                <enabled>1</enabled>
+                <api_url>http://127.0.0.1:8000</api_url>
+                <license_key></license_key>
+                <result_limit>10</result_limit>
+            </general>
+        </semantic_search>
+    </default>
+</config>

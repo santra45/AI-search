@@ -3,30 +3,58 @@
     <div class="ssw-loading">Loading usage data...</div>
     <div class="ssw-content" style="display:none;">
         
+        <!-- Today's Usage Table -->
+        <div class="ssw-card">
+            <div class="ssw-card-header">
+                <h2>Today's Usage</h2>
+                <div class="ssw-card-subtitle">Detailed breakdown of today's LLM operations</div>
+            </div>
+            <div class="ssw-card-body">
+                <div class="ssw-table-wrap">
+                    <table class="ssw-table">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Provider</th>
+                                <th>Model</th>
+                                <th>Type</th>
+                                <th>Requests</th>
+                                <th>Tokens</th>
+                                <th>Cost</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ssw-today-usage-tbody">
+                            <!-- Filled by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
         <!-- Summary Cards -->
-        <div class="ssw-cards-grid">
-            <div class="ssw-card">
-                <div class="ssw-card-header">
-                    <h3>Total Requests</h3>
-                </div>
-                <div class="ssw-card-body">
-                    <div id="ssw-usage-total-requests" class="ssw-stat-number">-</div>
-                </div>
+        <div class="ssw-card">
+            <div class="ssw-card-header">
+                <h2>Total Usage</h2>
+                <div class="ssw-card-subtitle">Detailed breakdown of total LLM operations</div>
             </div>
-            <div class="ssw-card">
-                <div class="ssw-card-header">
-                    <h3>Total Tokens</h3>
-                </div>
-                <div class="ssw-card-body">
-                    <div id="ssw-usage-total-tokens" class="ssw-stat-number">-</div>
-                </div>
-            </div>
-            <div class="ssw-card">
-                <div class="ssw-card-header">
-                    <h3>Total Cost</h3>
-                </div>
-                <div class="ssw-card-body">
-                    <div id="ssw-usage-total-cost" class="ssw-stat-number">-</div>
+            <div class="ssw-card-body">
+                <div class="ssw-table-wrap">
+                    <table class="ssw-table">
+                        <thead>
+                            <tr>
+                                <th>Total Requests</th>
+                                <th>Total Tokens</th>
+                                <th>Total Cost</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td id="ssw-usage-total-requests">-</td>
+                                <td id="ssw-usage-total-tokens">-</td>
+                                <td id="ssw-usage-total-cost">-</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>

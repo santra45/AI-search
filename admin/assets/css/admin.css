@@ -101,6 +101,13 @@
     letter-spacing: 0.5px;
 }
 
+.ssw-card-subtitle {
+    font-size: 11px;
+    color: var(--ssw-gray-400);
+    margin-top: 2px;
+    font-weight: 400;
+}
+
 .ssw-card-body {
     padding: 20px;
 }
@@ -664,5 +671,8 @@
 @media (max-width: 480px) {
     .ssw-stats-grid {
         grid-template-columns: 1fr;
+    }
+    .ssw-nav-tabs {
+        flex-direction: column;
     }
 }

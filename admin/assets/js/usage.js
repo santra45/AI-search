@@ -36,6 +36,7 @@
                     this.renderHourly(hourlyRes[0]);
                     this.renderQueryTypes(modelsRes[0]);
                     this.renderEstimatedCost(hourlyRes[0]);
+                    this.renderTodayUsage(hourlyRes[0]);
                 } catch (e) {
                     $panel.find('.ssw-loading').html(
                         '<div class="ssw-notice error">Failed to load usage data.</div>'
@@ -276,6 +277,57 @@
                         <td>$${Number(estimate.cost || 0).toFixed(6)}</td>
                         <td><strong>$${Number(monthlyCost || 0).toFixed(4)}</strong></td>
                         <td>${trend}</td>
+                    </tr>
+                `);
+            });
+        },
+
+        renderTodayUsage(res) {
+            if (!res.success || !res.data) return;
+            const hourly = res.data.data?.hourly_data || [];
+            const $tbody = $('#ssw-today-usage-tbody');
+            $tbody.empty();
+
+            if (!hourly.length) {
+                $tbody.html('<tr><td colspan="7"><div class="ssw-empty"><p>No usage data for today.</p></div></td></tr>');
+                return;
+            }
+
+            // Get today's date and filter hourly data for today
+            const today = new Date().toDateString();
+            const todayData = hourly.filter(h => 
+                new Date(h.hour).toDateString() === today
+            );
+
+            if (!todayData.length) {
+                $tbody.html('<tr><td colspan="7"><div class="ssw-empty"><p>No usage data for today.</p></div></td></tr>');
+                return;
+            }
+
+            // Sort by time (newest first)
+            todayData.sort((a, b) => new Date(b.hour) - new Date(a.hour));
+
+            todayData.forEach(hour => {
+                const time = new Date(hour.hour).toLocaleTimeString([], { 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                });
+                const provider = hour.llm_provider || 'Unknown';
+                const model = hour.llm_model || 'Unknown';
+                const type = hour.query_type || 'Unknown';
+                const requests = hour.request_count || 0;
+                const tokens = hour.total_tokens || 0;
+                const cost = hour.total_cost || 0;
+
+                $tbody.append(`
+                    <tr>
+                        <td><strong>${time}</strong></td>
+                        <td><span class="ssw-badge">${this.escHtml(provider)}</span></td>
+                        <td>${this.escHtml(model)}</td>
+                        <td><span class="ssw-badge">${this.escHtml(type)}</span></td>
+                        <td>${this.formatNumber(requests)}</td>
+                        <td>${this.formatNumber(tokens)}</td>
+                        <td><strong>$${Number(cost).toFixed(6)}</strong></td>
                     </tr>
                 `);
             });

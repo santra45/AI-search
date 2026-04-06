@@ -35,6 +35,7 @@
                     this.renderModels(modelsRes[0]);
                     this.renderHourly(hourlyRes[0]);
                     this.renderQueryTypes(modelsRes[0]);
+                    this.renderEstimatedCost(hourlyRes[0]);
                 } catch (e) {
                     $panel.find('.ssw-loading').html(
                         '<div class="ssw-notice error">Failed to load usage data.</div>'
@@ -98,11 +99,22 @@
             const ctx = document.getElementById('ssw-usage-hourly-chart');
             if (!ctx) return;
 
+            // Clear any existing chart
+            if (this.hourlyChart) {
+                this.hourlyChart.destroy();
+                this.hourlyChart = null;
+            }
+
+            // Handle empty data
+            if (!hourly.length) {
+                // Show empty state message
+                ctx.parentElement.innerHTML = '<div class="ssw-empty"><p>No hourly usage data yet.</p></div>';
+                return;
+            }
+
             const labels = hourly.map(h => new Date(h.hour).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
             const tokens = hourly.map(h => h.total_tokens || 0);
             const costs = hourly.map(h => h.total_cost || 0);
-
-            if (this.hourlyChart) this.hourlyChart.destroy();
 
             this.hourlyChart = new Chart(ctx, {
                 type: 'line',
@@ -157,6 +169,19 @@
             const ctx = document.getElementById('ssw-usage-query-types-chart');
             if (!ctx) return;
 
+            // Clear any existing chart
+            if (this.queryTypesChart) {
+                this.queryTypesChart.destroy();
+                this.queryTypesChart = null;
+            }
+
+            // Handle empty data
+            if (!models.length) {
+                // Show empty state message
+                ctx.parentElement.innerHTML = '<div class="ssw-empty"><p>No query type data yet.</p></div>';
+                return;
+            }
+
             // Group by query type
             const queryTypes = {};
             models.forEach(model => {
@@ -171,8 +196,6 @@
 
             const labels = Object.keys(queryTypes);
             const data = labels.map(type => queryTypes[type].cost);
-
-            if (this.queryTypesChart) this.queryTypesChart.destroy();
 
             this.queryTypesChart = new Chart(ctx, {
                 type: 'doughnut',
@@ -199,6 +222,110 @@
                     }
                 }
             });
+        },
+
+        renderEstimatedCost(res) {
+            if (!res.success || !res.data) return;
+            const hourly = res.data.data?.hourly_data || [];
+            const $tbody = $('#ssw-usage-estimated-cost-tbody');
+            $tbody.empty();
+
+            if (!hourly.length) {
+                $tbody.html('<tr><td colspan="5"><div class="ssw-empty"><p>No usage data for cost estimation.</p></div></td></tr>');
+                return;
+            }
+
+            // Calculate daily aggregates from hourly data
+            const dailyData = this.aggregateHourlyToDaily(hourly);
+            
+            if (!dailyData.length) {
+                $tbody.html('<tr><td colspan="5"><div class="ssw-empty"><p>Insufficient data for cost estimation.</p></div></td></tr>');
+                return;
+            }
+
+            // Calculate different period estimates
+            const estimates = [
+                {
+                    period: 'Today (Last 24h)',
+                    requests: dailyData[0]?.requests || 0,
+                    cost: dailyData[0]?.cost || 0,
+                    multiplier: 30
+                },
+                {
+                    period: 'Last 7 Days Avg',
+                    requests: this.calculateAverage(dailyData.slice(0, 7), 'requests'),
+                    cost: this.calculateAverage(dailyData.slice(0, 7), 'cost'),
+                    multiplier: 30
+                },
+                {
+                    period: 'Last 3 Days Avg',
+                    requests: this.calculateAverage(dailyData.slice(0, 3), 'requests'),
+                    cost: this.calculateAverage(dailyData.slice(0, 3), 'cost'),
+                    multiplier: 30
+                }
+            ];
+
+            estimates.forEach((estimate, index) => {
+                const monthlyCost = estimate.cost * estimate.multiplier;
+                const trend = this.calculateTrend(dailyData, estimate.cost);
+                
+                $tbody.append(`
+                    <tr>
+                        <td><strong>${this.escHtml(estimate.period)}</strong></td>
+                        <td>${this.formatNumber(Math.round(estimate.requests))}</td>
+                        <td>$${Number(estimate.cost || 0).toFixed(6)}</td>
+                        <td><strong>$${Number(monthlyCost || 0).toFixed(4)}</strong></td>
+                        <td>${trend}</td>
+                    </tr>
+                `);
+            });
+        },
+
+        aggregateHourlyToDaily(hourly) {
+            const dailyMap = new Map();
+            
+            hourly.forEach(hour => {
+                const date = new Date(hour.hour).toDateString();
+                if (!dailyMap.has(date)) {
+                    dailyMap.set(date, {
+                        date: date,
+                        requests: 0,
+                        cost: 0,
+                        tokens: 0
+                    });
+                }
+                const day = dailyMap.get(date);
+                day.requests += (hour.request_count || 0);
+                day.cost += (hour.total_cost || 0);
+                day.tokens += (hour.total_tokens || 0);
+            });
+
+            return Array.from(dailyMap.values()).sort((a, b) => 
+                new Date(b.date) - new Date(a.date)
+            );
+        },
+
+        calculateAverage(data, field) {
+            if (!data.length) return 0;
+            const sum = data.reduce((acc, item) => acc + (item[field] || 0), 0);
+            return sum / data.length;
+        },
+
+        calculateTrend(dailyData, currentCost) {
+            if (dailyData.length < 2) return '<span class="ssw-badge neutral">—</span>';
+            
+            const previousCost = dailyData[1]?.cost || 0;
+            if (previousCost === 0) return '<span class="ssw-badge neutral">—</span>';
+            
+            const change = ((currentCost - previousCost) / previousCost) * 100;
+            
+            if (Math.abs(change) < 5) {
+                return '<span class="ssw-badge neutral">→ Stable</span>';
+            } else if (change > 0) {
+                return `<span class="ssw-badge danger">↑ ${Math.abs(change).toFixed(1)}%</span>`;
+            } else {
+                return `<span class="ssw-badge success">↓ ${Math.abs(change).toFixed(1)}%</span>`;
+            }
         },
 
         formatNumber(n) {

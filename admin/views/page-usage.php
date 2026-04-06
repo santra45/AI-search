@@ -31,6 +31,32 @@
             </div>
         </div>
 
+        <!-- Estimated Monthly Cost -->
+        <div class="ssw-card">
+            <div class="ssw-card-header">
+                <h2>Estimated Monthly Cost</h2>
+                <div class="ssw-card-subtitle">Based on recent daily usage patterns</div>
+            </div>
+            <div class="ssw-card-body">
+                <div class="ssw-table-wrap">
+                    <table class="ssw-table">
+                        <thead>
+                            <tr>
+                                <th>Period</th>
+                                <th>Daily Requests</th>
+                                <th>Daily Cost</th>
+                                <th>Est. Monthly Cost</th>
+                                <th>Trend</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ssw-usage-estimated-cost-tbody">
+                            <!-- Filled by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
         <!-- Usage by Model -->
         <div class="ssw-card">
             <div class="ssw-card-header">

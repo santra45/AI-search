@@ -174,8 +174,6 @@
     gap: 16px;
 }
 
-.ssw-quota-item {}
-
 .ssw-quota-header {
     display: flex;
     justify-content: space-between;
@@ -287,6 +285,8 @@
 .ssw-badge.success  { background: #e6f4ea; color: #00a32a; }
 .ssw-badge.warning  { background: #fef9e7; color: #dba617; }
 .ssw-badge.plan     { background: #f0f0f1; color: #50575e; }
+.ssw-badge.neutral  { background: #f0f0f1; color: #50575e; }
+.ssw-badge.danger   { background: #fce8e8; color: #d63638; }
 
 /* ── Status Indicators ─────────────────────────────────────── */
 .ssw-status-list {

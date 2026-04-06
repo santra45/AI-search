@@ -87,11 +87,13 @@ async def signup_client(
         )
         
     except ValueError as e:
+        print(f"❌ Onboarding ValueError: {e}")
         return SignupResponse(
             success=False,
             error=str(e)
         )
     except Exception as e:
+        print(f"❌ Onboarding Exception: {e}")
         return SignupResponse(
             success=False,
             error="Registration failed. Please try again."
@@ -293,10 +295,19 @@ analytics.track('semantic_search', {
 
 @router.get("/semantic-search-woo.zip")
 async def download_plugin():
-    """Serve the plugin ZIP file for download."""
+    """Serve plugin ZIP file for download."""
     plugin_path = "backend/app/static/semantic-search-woo.zip"
+    
+    headers = {
+        "Content-Disposition": "attachment; filename=\"semantic-search-woo.zip\"",
+        "Content-Type": "application/zip",
+        "X-Content-Type-Options": "nosniff",
+        "Cache-Control": "no-cache"
+    }
+    
     return FileResponse(
         path=plugin_path,
         filename="semantic-search-woo.zip",
-        media_type="application/zip"
+        media_type="application/zip",
+        headers=headers
     )

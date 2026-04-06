@@ -9,11 +9,12 @@ from typing import Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from backend.app.services.embedder import embed_document
-from backend.app.services.qdrant_service import upsert_product, delete_product
+from backend.app.services.qdrant_service import upsert_product, delete_product, get_client_product_count, product_exists
 from backend.app.services.cache_service import invalidate_client_results
-from backend.app.services.license_service import increment_ingest_count
+from backend.app.services.license_service import increment_ingest_count, validate_license_key, get_client_license
 from backend.app.services.database import get_db
 from backend.app.services.product_service import build_product_text, extract_payload  # ← import
+from backend.app.services.llm_key_service import decrypt_key
 
 router    = APIRouter()
 
@@ -23,7 +24,7 @@ def verify_signature(body: bytes, signature: str, secret: str) -> bool:
     expected = base64.b64encode(mac.digest()).decode("utf-8")
     return hmac.compare_digest(expected, signature)
 
-def process_upsert(product: dict, action: str, client_id: str, db: Session) -> dict:
+def process_upsert(product: dict, action: str, client_id: str, db: Session, license_data: dict = None, llm_api_key_encrypted: str = None) -> dict:
     """
     Shared logic for created + updated webhooks.
     Both do the same thing — embed and upsert.
@@ -39,15 +40,51 @@ def process_upsert(product: dict, action: str, client_id: str, db: Session) -> d
         print(f"🗑️  Webhook [{action}]: removed product {product_id}")
         return {"status": "removed", "product_id": product_id}
 
+    # CRITICAL: Check product limit before indexing
+    if not license_data:
+        license_data = get_client_license(db, client_id)
+    
+    current_count = get_client_product_count(client_id, license_data["domain"])
+
+    exists = product_exists(client_id, license_data["domain"], product_id)
+
+    # Only block NEW products
+    if not exists and current_count >= license_data["product_limit"]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Product limit exceeded. Current: {current_count}, Limit: {license_data['product_limit']}"
+        )
+    # For updates, check if we're adding a new product or updating existing
+    # If product doesn't exist in vector store, count it as new
+    # if current_count >= license_data["product_limit"]:
+    #     raise HTTPException(
+    #         status_code=400,
+    #         detail=f"Product limit exceeded. Current: {current_count}, Limit: {license_data['product_limit']}"
+    #     )
+
+    # Decrypt embedding API key if provided
+    if llm_api_key_encrypted:
+        try:
+            print(f"Decrypting embedding API key for license {license_data['license_key']}")
+            print(f"LLM API key encrypted: {llm_api_key_encrypted}")
+            embedding_api_key = decrypt_key(llm_api_key_encrypted, license_data["license_key"])   
+        except Exception as e:
+            print(f"❌ Embedding API key decryption failed: {e}")
+            embedding_api_key = None
+    else:
+        print(f"Embedding API key not provided, using default")
+        embedding_api_key = None
+
     # Uses product_service — raw WooCommerce format with nested categories/tags/attributes
     text    = build_product_text(product)
-    vector  = embed_document(text)
+    vector  = embed_document(text, embedding_api_key, client_id)
     payload = extract_payload(product)
     payload["embedded_text"] = text
 
-    upsert_product(client_id, product_id, vector, payload)
+    upsert_product(client_id, license_data["domain"], product_id, vector, payload)
     invalidate_client_results(client_id)
-    increment_ingest_count(db, client_id, count=1)
+    if not exists:
+        increment_ingest_count(db, client_id, count=1)
     print(f"✅ Webhook [{action}]: indexed {product_id} - {product.get('name')}")
 
     return {"status": action, "product_id": product_id}
@@ -79,6 +116,7 @@ async def parse_webhook_body(request: Request) -> tuple:
 def product_created(
     request: Request,
     client_id: str = Query(...),   # ← reads ?client_id= from URL
+    llm_api_key: Optional[str] = Query(None),  # ← reads ?llm_api_key= from URL
     db: Session = Depends(get_db),
     x_wc_webhook_signature: Optional[str] = Header(None)
 ):
@@ -116,8 +154,12 @@ def product_created(
             product=product,
             action="created",
             client_id=client_id,
-            db=db
+            db=db,
+            llm_api_key_encrypted=llm_api_key
         )
+    except HTTPException as e:
+        # Re-raise HTTPExceptions to preserve status codes
+        raise e
     except Exception as e:
         print(f"❌ Webhook [created] error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -127,6 +169,7 @@ def product_created(
 def product_updated(
     request: Request,
     client_id: str = Query(...),   # ← reads ?client_id= from URL
+    llm_api_key: Optional[str] = Query(None),  # ← reads ?llm_api_key= from URL
     db: Session = Depends(get_db),
     x_wc_webhook_signature: Optional[str] = Header(None)
 ):
@@ -163,8 +206,12 @@ def product_updated(
             product=product,
             action="updated",
             client_id=client_id,
-            db=db
+            db=db,
+            llm_api_key_encrypted=llm_api_key
         )
+    except HTTPException as e:
+        # Re-raise HTTPExceptions to preserve status codes
+        raise e
     except Exception as e:
         print(f"❌ Webhook [updated] error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -210,7 +257,9 @@ def product_deleted(
         return {"status": "skipped", "reason": "no product id"}
 
     try:
-        delete_product(client_id, product_id)
+        # Get license data to retrieve domain
+        license_data = get_client_license(db, client_id)
+        delete_product(client_id, license_data["domain"], product_id)
         invalidate_client_results(client_id)
         print(f"🗑️  Webhook [deleted]: removed product {product_id}")
         return {"status": "deleted", "product_id": product_id}

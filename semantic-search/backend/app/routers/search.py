@@ -8,6 +8,7 @@ from backend.app.services.wordpress_service import (search_wordpress_fallback, s
 from backend.app.services.intent_service import analyze_intent
 from backend.app.services.rerank_service import extract_keywords, filter_and_rerank
 from backend.app.services.llm_rerank_service import llm_rerank_products, should_use_llm_reranking
+from backend.app.services.llm_key_service import decrypt_key
 import time
 from backend.app.services.license_service import (validate_license_key, increment_search_count, check_search_quota, log_search)
 from backend.app.services.database import get_db
@@ -21,6 +22,9 @@ class SearchRequest(BaseModel):
     query: str
     limit: int = 10
     enable_intent: bool = False
+    llm_provider: str = None
+    llm_model: str = None
+    llm_api_key_encrypted: str = None
 
 
 @router.post("/search")
@@ -36,6 +40,8 @@ async def search(req: SearchRequest, request: Request, db: Session = Depends(get
         raise HTTPException(status_code=403, detail=str(e))
 
     client_id = license_data["client_id"]
+    domain = license_data["domain"]
+    license_key = req.license_key
 
     # CRITICAL: Enforce domain authorization
     origin = request.headers.get("origin") or request.headers.get("referer")
@@ -61,7 +67,7 @@ async def search(req: SearchRequest, request: Request, db: Session = Depends(get
     print(f"Search quota took: {time.time() - start_time}")
 
     # Step 3 — check results cache
-    cached_results = get_cached_results(client_id, query)
+    cached_results = get_cached_results(f"{client_id}_{domain}", query)
     if cached_results is not None:
         print(f"⚡ Cache HIT (results): '{query}'")
         response_time = int((time.time() - start_time) * 1000)
@@ -98,12 +104,24 @@ async def search(req: SearchRequest, request: Request, db: Session = Depends(get
     # ────────────────────────────────────────────────────────────────────────
 
     # Step 4 — check embedding cache
-    query_vector = get_cached_embedding(clean_query)
+    query_vector = get_cached_embedding(query)
     if query_vector is not None:
-        print(f"⚡ Cache HIT (embedding): '{clean_query}'")
+        print(f"⚡ Cache HIT (embedding): '{query}'")
     else:
-        print(f"🌐 Cache MISS: '{clean_query}' — calling Gemini")
-        query_vector = embed_query(clean_query)
+        print(f"🌐 Cache MISS: '{query}' — calling Gemini")
+        
+        # Decrypt embedding API key if provided
+        if req.llm_api_key_encrypted:
+            try:
+                embedding_api_key = decrypt_key(req.llm_api_key_encrypted, license_key)   
+            except Exception as e:
+                print(f"❌ Embedding API key decryption failed: {e}")
+                embedding_api_key = None
+        else:
+            print(f"Embedding API key not provided, using default")
+            embedding_api_key = None
+            
+        query_vector = embed_query(query, embedding_api_key, client_id)
         set_cached_embedding(query, query_vector)
 
     # Step 5 — search Qdrant
@@ -112,6 +130,7 @@ async def search(req: SearchRequest, request: Request, db: Session = Depends(get
     fetch_limit = req.limit * 5
     results = search_products(
         client_id=client_id,
+        domain=domain,
         query_vector=query_vector,
         limit=fetch_limit,
         min_price=min_price,
@@ -135,7 +154,24 @@ async def search(req: SearchRequest, request: Request, db: Session = Depends(get
     # Uses Gemini to analyze semantic relevance and filter out irrelevant products
     if should_use_llm_reranking(req.query, results):
         print(f"🤖 Applying LLM re-ranking for query: '{req.query}'")
-        llm_results = llm_rerank_products(req.query, results, req.limit)
+        if req.llm_api_key_encrypted:
+            try:
+                llm_api_key = decrypt_key(req.llm_api_key_encrypted, license_key)   
+            except Exception as e:
+                print(f"❌ Decryption failed: {e}")
+                llm_api_key = None
+        else:
+            print(f"API key not getting from DB")
+            llm_api_key = None
+        llm_results = llm_rerank_products(
+            req.query, 
+            results, 
+            req.limit,
+            llm_provider=req.llm_provider,
+            llm_model=req.llm_model,
+            llm_api_key=llm_api_key,
+            client_id=client_id,
+        )
         print(f"LLM re-ranking took: {time.time() - start_time}")
         if llm_results is not None:
             print(f"🤖 LLM re-ranked {len(results)} → {len(llm_results)} products")
@@ -165,7 +201,7 @@ async def search(req: SearchRequest, request: Request, db: Session = Depends(get
     #        results = []
 
     # Step 6 — cache results
-    set_cached_results(client_id, query, results)
+    set_cached_results(f"{client_id}_{domain}", query, results)
 
     # Step 7 — track usage
     response_time = int((time.time() - start_time) * 1000)

@@ -6,7 +6,10 @@ from backend.app.services.embedder import embed_document
 from backend.app.services.qdrant_service import upsert_product, delete_product, get_client_product_count
 from backend.app.services.license_service import validate_license_key, increment_ingest_count
 from backend.app.services.database import get_db
+from backend.app.services.cache_service import invalidate_client_results
 from backend.app.services.product_service import build_product_text, extract_payload
+from backend.app.services.domain_auth_service import DomainAuthorizer
+from backend.app.services.llm_key_service import decrypt_key
 from urllib.parse import urlparse
 
 router = APIRouter()
@@ -35,6 +38,7 @@ class Product(BaseModel):
 class IngestRequest(BaseModel):
     license_key: str
     products:    List[Product]
+    llm_api_key_encrypted: str = None
 
 
 class DeleteRequest(BaseModel):
@@ -50,22 +54,26 @@ def ingest(req: IngestRequest, request: Request, db: Session = Depends(get_db)):
         raise HTTPException(status_code=403, detail=str(e))
 
     client_id = license_data["client_id"]
+    domain    = license_data["domain"]
+    license_key = req.license_key
 
-    # CRITICAL: Enforce domain authorization
-    origin = request.headers.get("origin") or request.headers.get("referer")
-    allowed_domain = license_data.get("domain")
+    # Decrypt embedding API key if provided
+    if req.llm_api_key_encrypted:
+        try:
+            embedding_api_key = decrypt_key(req.llm_api_key_encrypted, license_key)   
+        except Exception as e:
+            print(f"❌ Embedding API key decryption failed: {e}")
+            embedding_api_key = None
+    else:
+        print(f"Embedding API key not provided, using default")
+        embedding_api_key = None
 
-    if allowed_domain and origin:
-        hostname = urlparse(origin).hostname
-
-        if allowed_domain and hostname not in [allowed_domain, "127.0.0.1"]:
-            raise HTTPException(
-                status_code=403,
-                detail=f"Domain not authorized. License valid for: {allowed_domain}"
-            )
+    # CRITICAL: Enforce secure domain authorization
+    authorizer = DomainAuthorizer(db)
+    authorizer.validate_request(request, license_data)
 
     # CRITICAL: Check total indexed count + incoming count against plan limit
-    current_count = get_client_product_count(client_id)
+    current_count = get_client_product_count(client_id, domain)
     incoming_count = len(req.products)
     total_after_ingest = current_count + incoming_count
     
@@ -82,10 +90,10 @@ def ingest(req: IngestRequest, request: Request, db: Session = Depends(get_db)):
         try:
             p       = product.model_dump()
             text    = build_product_text(p)
-            vector  = embed_document(text)
+            vector  = embed_document(text, embedding_api_key, client_id)
             payload = extract_payload(p)
             payload["embedded_text"] = text
-            upsert_product(client_id, product.product_id, vector, payload)
+            upsert_product(client_id, domain, product.product_id, vector, payload)
             success.append(product.product_id)
         except Exception as e:
             failed.append({"product_id": product.product_id, "error": str(e)})
@@ -109,18 +117,9 @@ def delete(req: DeleteRequest, request: Request, db: Session = Depends(get_db)):
         raise HTTPException(status_code=403, detail=str(e))
 
     try:
-        # CRITICAL: Enforce domain authorization
-        origin = request.headers.get("origin") or request.headers.get("referer")
-        allowed_domain = license_data.get("domain")
-
-        if allowed_domain and origin:
-            hostname = urlparse(origin).hostname
-
-            if allowed_domain and hostname not in [allowed_domain, "127.0.0.1"]:
-                raise HTTPException(
-                    status_code=403,
-                    detail=f"Domain not authorized. License valid for: {allowed_domain}"
-                )
+        # CRITICAL: Enforce secure domain authorization
+        authorizer = DomainAuthorizer(db)
+        authorizer.validate_request(request, license_data)
 
         delete_product(license_data["client_id"], req.product_id)
         return {"deleted": True, "product_id": req.product_id}

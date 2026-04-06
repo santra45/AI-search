@@ -8,6 +8,8 @@ from backend.app.services.license_service import validate_license_key, increment
 from backend.app.services.database import get_db
 from backend.app.services.cache_service import invalidate_client_results
 from backend.app.services.product_service import build_product_text, extract_payload
+from backend.app.services.domain_auth_service import DomainAuthorizer
+from backend.app.services.llm_key_service import decrypt_key
 import time
 from urllib.parse import urlparse
 
@@ -39,6 +41,7 @@ class SyncBatchRequest(BaseModel):
     products:      List[SyncProduct]
     batch_number:  int = 1
     total_batches: int = 1
+    llm_api_key_encrypted: str = None
 
 
 class SyncBatchResponse(BaseModel):
@@ -58,22 +61,39 @@ def sync_batch(req: SyncBatchRequest, request: Request, db: Session = Depends(ge
         raise HTTPException(status_code=403, detail=str(e))
 
     client_id   = license_data["client_id"]
+    domain      = license_data["domain"]
+    license_key = req.license_key
     
-    # CRITICAL: Enforce domain authorization
-    origin = request.headers.get("origin") or request.headers.get("referer")
-    allowed_domain = license_data.get("domain")
-
-    if allowed_domain and origin:
-        hostname = urlparse(origin).hostname
-
-        if allowed_domain and hostname not in [allowed_domain, "127.0.0.1"]:
-            raise HTTPException(
-                status_code=403,
-                detail=f"Domain not authorized. License valid for: {allowed_domain}"
-            )
+    # Decrypt embedding API key if provided
+    if req.llm_api_key_encrypted:
+        try:
+            embedding_api_key = decrypt_key(req.llm_api_key_encrypted, license_key)   
+        except Exception as e:
+            print(f" Embedding API key decryption failed: {e}")
+            embedding_api_key = None
+    else:
+        print(f"Embedding API key not provided, using default")
+        embedding_api_key = None
+    
+    # CRITICAL: Enforce secure domain authorization
+    authorizer = DomainAuthorizer(db)
+    authorizer.validate_request(request, license_data)
+    
+    # CRITICAL: Check total indexed count + incoming count against plan limit
+    current_count = get_client_product_count(client_id, domain)
+    incoming_count = len(req.products)
+    total_after_ingest = current_count + incoming_count
+    
+    if total_after_ingest > license_data["product_limit"]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Product limit exceeded. Current: {current_count}, Incoming: {incoming_count}, Limit: {license_data['product_limit']}"
+        )
     
     success_ids = []
     failed_ids  = []
+
+    print(f"Syncing batch {req.batch_number}/{req.total_batches} with {len(req.products)} products")
 
     for product in req.products:
         try:
@@ -82,14 +102,14 @@ def sync_batch(req: SyncBatchRequest, request: Request, db: Session = Depends(ge
             # product_service handles flat string format from plugin
             text    = build_product_text(p)
 
-            if len(success_ids) > 0:
-                time.sleep(0.5)
+            # if len(success_ids) > 0:
+            #     time.sleep(0.5)
 
-            vector  = embed_document(text)
+            vector  = embed_document(text, embedding_api_key, client_id)
             payload = extract_payload(p)
             payload["embedded_text"] = text
 
-            upsert_product(client_id, product.product_id, vector, payload)
+            upsert_product(client_id, domain, product.product_id, vector, payload)
             success_ids.append(product.product_id)
 
         except Exception as e:
@@ -113,6 +133,40 @@ def sync_batch(req: SyncBatchRequest, request: Request, db: Session = Depends(ge
     )
 
 
+@router.post("/sync/cancel")
+def cancel_sync(
+    request: Request,
+    authorization: Optional[str] = Header(None),
+    license_key: Optional[str] = Query(None),
+    db: Session = Depends(get_db)
+):
+    token = extract_license_key_from_authorization(authorization) or license_key
+    if not token:
+        raise HTTPException(status_code=401, detail="Missing Authorization header")
+
+    try:
+        license_data = validate_license_key(token, db)
+    except ValueError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+
+    # CRITICAL: Enforce secure domain authorization
+    authorizer = DomainAuthorizer(db)
+    authorizer.validate_request(request, license_data)
+    
+    # In a real implementation, you might want to:
+    # 1. Set a flag in database/cache to indicate cancellation
+    # 2. Signal any running batch processes to stop
+    # 3. Clean up any temporary state
+    
+    # For now, we'll just return success since the WordPress plugin
+    # handles the actual cancellation by updating its local state
+    
+    return {
+        "success": True,
+        "message": "Sync cancellation request received"
+    }
+
+
 @router.get("/sync/status")
 def sync_status(
     request: Request,
@@ -129,20 +183,11 @@ def sync_status(
     except ValueError as e:
         raise HTTPException(status_code=403, detail=str(e))
 
-    # CRITICAL: Enforce domain authorization
-    origin = request.headers.get("origin") or request.headers.get("referer")
-    allowed_domain = license_data.get("domain")
-
-    if allowed_domain and origin:
-        hostname = urlparse(origin).hostname
-
-        if allowed_domain and hostname not in [allowed_domain, "127.0.0.1"]:
-            raise HTTPException(
-                status_code=403,
-                detail=f"Domain not authorized. License valid for: {allowed_domain}"
-            )
+    # CRITICAL: Enforce secure domain authorization
+    authorizer = DomainAuthorizer(db)
+    authorizer.validate_request(request, license_data)
     
-    count = get_client_product_count(license_data["client_id"])
+    count = get_client_product_count(license_data["client_id"], license_data["domain"])
 
     return {
         "client_id":     license_data["client_id"],

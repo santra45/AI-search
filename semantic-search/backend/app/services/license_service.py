@@ -6,7 +6,7 @@ from jose import jwt, JWTError
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
-SECRET_KEY = os.getenv("JWT_SECRET", "change-this-in-production")
+SECRET_KEY = os.getenv("JWT_SECRET")
 ALGORITHM  = "HS256"
 
 PLAN_LIMITS = {
@@ -29,6 +29,15 @@ PLAN_LIMITS = {
 
 def create_client(db: Session, name: str, email: str, plan: str = "starter") -> dict:
     """Create a new client record in MySQL."""
+    # Check if email already exists
+    existing_client = db.execute(text("""
+        SELECT id, name, email, plan FROM clients 
+        WHERE email = :email AND is_active = 1
+    """), {"email": email}).fetchone()
+    
+    if existing_client:
+        raise ValueError(f"A client with email '{email}' already exists. Please use a different email address.")
+    
     client_id = str(uuid.uuid4())
 
     db.execute(text("""
@@ -39,6 +48,25 @@ def create_client(db: Session, name: str, email: str, plan: str = "starter") -> 
     db.commit()
 
     return {"id": client_id, "name": name, "email": email, "plan": plan}
+
+
+def get_client_by_email(db: Session, email: str) -> Optional[dict]:
+    """Get a client by email address."""
+    result = db.execute(text("""
+        SELECT id, name, email, plan, is_active FROM clients 
+        WHERE email = :email
+    """), {"email": email}).fetchone()
+    
+    if not result:
+        return None
+    
+    return {
+        "id": result.id,
+        "name": result.name,
+        "email": result.email,
+        "plan": result.plan,
+        "is_active": bool(result.is_active)
+    }
 
 
 def generate_license_key(
@@ -230,6 +258,44 @@ def log_search(
         "cached":           1 if cached else 0
     })
     db.commit()
+
+
+# ─── License Lookup ────────────────────────────────────────────────────────────
+
+def get_client_license(db: Session, client_id: str) -> dict:
+    """
+    Get active license data for a client by client_id.
+    Raises ValueError if no active license found.
+    """
+    result = db.execute(text("""
+        SELECT lk.id, lk.license_key, lk.is_active, lk.expires_at, lk.product_limit,
+               lk.search_limit_per_month, lk.allowed_domain,
+               c.name as client_name
+        FROM license_keys lk
+        JOIN clients c ON c.id = lk.client_id
+        WHERE lk.client_id = :client_id
+        AND   lk.is_active = 1
+        AND   c.is_active = 1
+        ORDER BY lk.expires_at DESC
+        LIMIT 1
+    """), {"client_id": client_id}).fetchone()
+
+    if not result:
+        raise ValueError("No active license found for client")
+
+    if result.expires_at and result.expires_at < datetime.utcnow():
+        raise ValueError("License has expired")
+
+    return {
+        "license_id": result.id,
+        "client_id": client_id,
+        "license_key": result.license_key,
+        "client_name": result.client_name,
+        "domain": result.allowed_domain,
+        "product_limit": result.product_limit,
+        "search_limit": result.search_limit_per_month,
+        "license_expires": result.expires_at.isoformat() if result.expires_at else None
+    }
 
 
 # ─── Ingest Logging ────────────────────────────────────────────────────────────

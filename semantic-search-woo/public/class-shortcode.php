@@ -37,8 +37,10 @@ class SSW_Shortcode {
             // Pass configuration to JavaScript
             wp_localize_script('semantic-search-js', 'semanticSearchConfig', [
                 'apiUrl' => rest_url('ssw/v1/'),
+                'ajaxUrl' => admin_url('admin-ajax.php'),
                 'nonce' => wp_create_nonce('wp_rest'),
                 'addToCartNonce' => wp_create_nonce('ssw_add_to_cart_nonce'),
+                'licenseKey' => get_option('ssw_license_key', ''),
                 'currency' => get_woocommerce_currency(),
                 'currencySymbol' => get_woocommerce_currency_symbol(),
                 'currencyPosition' => get_option('woocommerce_currency_pos'),

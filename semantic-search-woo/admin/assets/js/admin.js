@@ -19,6 +19,10 @@
         SSW_Status.init();
         SSW_Sync.init();
     });
+    $(document).on('click', '#ssw-change-api-key', function () {
+        $('#ssw-llm-api-key').prop('disabled', false).focus();
+        $('#ssw-llm-api-key').val('');
+    });
 
 
     // ============================================================
@@ -398,11 +402,110 @@
             // Register webhooks button
             $('#ssw-register-webhooks').on('click', () => this.registerWebhooksManual());
 
+            // LLM Provider change handler
+            $('#ssw-llm-provider').on('change', () => this.handleProviderChange());
+
             // Save settings — re-register webhooks if license key changed
             $('#ssw-settings-form').on('submit', (e) => {
                 e.preventDefault();
                 this.saveSettings();
-                window.location.reload();
+            });
+
+            // Initialize provider-specific fields on page load
+            this.handleProviderChange();
+        },
+
+        handleProviderChange() {
+            const provider = $('#ssw-llm-provider').val();
+            const $modelRow = $('#ssw-llm-model-row');
+            const $apiKeyRow = $('#ssw-llm-api-key-row');
+            const $modelSelect = $('#ssw-llm-model');
+
+            // Model options for each provider
+            const models = {
+                gemini: [
+                    { value: 'gemini-3.1-pro-preview', text: 'Gemini 3.1 Pro (Latest)' },
+                    { value: 'gemini-2.5-pro', text: 'Gemini 2.5 Pro (Stable)' },
+                    { value: 'gemini-2.5-flash', text: 'Gemini 2.5 Flash (Fast)' },
+                    { value: 'gemini-2.5-flash-lite', text: 'Gemini 2.5 Flash Lite (Budget)' },
+                    { value: 'gemma-3-27b-it', text: 'Gemma 3 27B (Free)' }
+                ],
+                openai: [
+                    { value: 'gpt-5.4', text: 'GPT-5.4 (Latest)' },
+                    { value: 'gpt-5.4-mini', text: 'GPT-5.4 Mini (Fast)' },
+                    { value: 'gpt-5.4-nano', text: 'GPT-5.4 Nano (Budget)' },
+                    { value: 'gpt-5.2', text: 'GPT-5.2 (Previous Gen)' }
+                ],
+                anthropic: [
+                    { value: 'claude-opus-4-6', text: 'Claude Opus 4.6 (Most Powerful)' },
+                    { value: 'claude-sonnet-4-6', text: 'Claude Sonnet 4.6 (Balanced)' },
+                    { value: 'claude-haiku-4-5-20251001', text: 'Claude Haiku 4.5 (Fast)' },
+                    { value: 'claude-3-5-sonnet-20241022', text: 'Claude 3.5 Sonnet (Legacy)' }
+                ]
+            };
+
+            const apiKeyInstructions = {
+                gemini: `
+                    Get your API key from Google AI Studio.<br>
+                    <strong>How to get this:</strong>
+                    Go to <a href="https://aistudio.google.com/app/api-keys" target="_blank">
+                    Google AI Studio → API Keys</a>
+                    → <strong>Create API Key</strong> → copy the key here.
+                `,
+                openai: `
+                    Get your API key from the OpenAI developer dashboard.<br>
+                    <strong>How to get this:</strong>
+                    Go to <a href="https://platform.openai.com/api-keys" target="_blank">
+                    OpenAI Platform → API Keys</a>
+                    → <strong>Create new secret key</strong> → copy the key here.
+                    Note: Ensure your account has a funded usage balance.
+                `,
+                anthropic: `
+                    Get your API key from the Anthropic Console.<br>
+                    <strong>How to get this:</strong>
+                    Go to <a href="https://platform.claude.com/settings/keys" target="_blank">
+                    Anthropic Console → Settings → API Keys</a>
+                    → <strong>Create Key</strong> → copy the key here.
+                `
+            };
+
+            if (provider && models[provider]) {
+                // Show model and API key rows
+                $modelRow.show();
+                $apiKeyRow.show();
+
+                // Update API key instruction note
+                $('#ssw-llm-api-key-desc').html(apiKeyInstructions[provider]);
+
+                $modelSelect.empty();
+                $modelSelect.append('<option value="">Select a model...</option>');
+
+                // Add provider-specific models
+                models[provider].forEach(model => {
+                    $modelSelect.append(`<option value="${model.value}">${model.text}</option>`);
+                });
+
+                // Set current selection if exists
+                const currentModel = $modelSelect.data('current') || '';
+                if (currentModel && $modelSelect.find(`option[value="${currentModel}"]`).length) {
+                    $modelSelect.val(currentModel);
+                } else {
+                    $modelSelect.val('');
+                }
+            } else {
+                // Hide rows if no provider selected
+                $modelRow.hide();
+                $apiKeyRow.hide();
+                $('#ssw-llm-api-key-desc').html('');
+            }
+            let previousProvider = $('#ssw-llm-provider').data('current') || '';
+            $('#ssw-llm-provider').on('change', function () {
+                const newProvider = $(this).val();
+                if (previousProvider && newProvider !== previousProvider) {
+                    $('#ssw-llm-model').val('');
+                    $('#ssw-llm-api-key').val('').prop('disabled', false);
+                }
+                previousProvider = newProvider;
             });
         },
 
@@ -446,7 +549,10 @@
                 result_limit: $('#ssw-result-limit').val(),
                 wc_key:       wcKey,
                 wc_secret:    wcSecret,
-                enable_intent: $('#ssw-enable-intent').is(':checked') ? 1 : 0
+                enable_intent: $('#ssw-enable-intent').is(':checked') ? 1 : 0,
+                llm_provider: $('#ssw-llm-provider').val(),
+                llm_model: $('#ssw-llm-model').val(),
+                llm_api_key: $('#ssw-llm-api-key').is(':disabled') ? '' : $('#ssw-llm-api-key').val().trim()
             }).done(res => {
                 if (res.success) {
                     showInlineResult($result, '✅ Settings saved', 'success');
@@ -540,6 +646,7 @@
             if (!$('#settings-panel').length) return;
 
             $('#ssw-sync-btn').on('click', () => this.start());
+            $('#ssw-cancel-sync-btn').on('click', () => this.cancel());
 
             // Resume if sync was running when page loaded
             if (SSW.sync_running) {
@@ -572,19 +679,51 @@
                     total:         res.data.total,
                     current_batch: 0,
                     total_batches: res.data.total_batches
-                });
-                this.processNext();
             });
-        },
+            this.processNext();
+        });
+    },
 
-        processNext() {
-            if (!this.running) return;
+    cancel() {
+        if (!confirm('Are you sure you want to cancel the sync? This will stop the indexing process.')) return;
 
-            ajax('ssw_next_batch').done(res => {
-                if (!res.success) {
-                    this.onError('Batch processing failed.');
-                    return;
-                }
+        const $cancelBtn = $('#ssw-cancel-sync-btn');
+        $cancelBtn.prop('disabled', true).html(
+            '<span class="ssw-spinner"></span> Cancelling...'
+        );
+
+        ajax('ssw_cancel_sync').done(res => {
+            if (res.success) {
+                this.running = false;
+                this.hideProgress();
+                
+                // Update UI to show cancelled state
+                $('#ssw-sync-btn').prop('disabled', false).text('🔄 Sync All Products');
+                $('#ssw-sync-status-text').text('⏹️ Cancelled');
+                
+                // Hide cancel button
+                $cancelBtn.remove();
+                
+                // Show success message
+                alert(`Sync cancelled. ${res.processed} products were indexed (${res.percentage}% complete).`);
+            } else {
+                alert('Failed to cancel sync: ' + (res.message || 'Unknown error'));
+                $cancelBtn.prop('disabled', false).text('⏹️ Cancel Sync');
+            }
+        }).fail(() => {
+            alert('Failed to cancel sync. Please try again.');
+            $cancelBtn.prop('disabled', false).text('⏹️ Cancel Sync');
+        });
+    },
+
+    processNext() {
+        if (!this.running) return;
+
+        ajax('ssw_next_batch').done(res => {
+            if (!res.success) {
+                this.onError('Batch processing failed.');
+                return;
+            }
 
                 this.updateProgress(res.data);
 
@@ -639,10 +778,24 @@
             $('#ssw-sync-btn').prop('disabled', true).html(
                 '<span class="ssw-spinner"></span> Syncing...'
             );
+            
+            // Add cancel button if it doesn't exist
+            if (!$('#ssw-cancel-sync-btn').length) {
+                const $cancelBtn = $('<button>')
+                    .attr('id', 'ssw-cancel-sync-btn')
+                    .addClass('ssw-btn ssw-btn-secondary')
+                    .css('margin-left', '10px')
+                    .text('⏹️ Cancel Sync')
+                    .on('click', () => this.cancel());
+                
+                $('#ssw-sync-btn').after($cancelBtn);
+            }
         },
 
         hideProgress() {
             $('#ssw-progress-wrap').slideUp(200);
+            // Remove cancel button
+            $('#ssw-cancel-sync-btn').remove();
         }
     };
 

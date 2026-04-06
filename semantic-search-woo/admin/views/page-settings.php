@@ -37,6 +37,7 @@ $last_sync = $progress['started_at']
 $sync_status_text = match($progress['status']) {
     'complete' => '✅ Complete',
     'running'  => '⏳ Running...',
+    'cancelled' => '⏹️ Cancelled',
     'idle'     => '—',
     default    => '—'
 };
@@ -164,6 +165,64 @@ $sync_status_text = match($progress['status']) {
                             </p>
                         </td>
                     </tr>
+                    <tr>
+                        <th>
+                            <label for="ssw-llm-provider">LLM Provider</label>
+                        </th>
+                        <td>
+                            <select id="ssw-llm-provider" name="llm_provider" style="min-width:200px;">
+                                <option value="">Select LLM Provider</option>
+                                <option value="gemini" <?= selected(get_option('ssw_llm_provider', ''), 'gemini') ?>>
+                                    Google Gemini
+                                </option>
+                                <option value="openai" <?= selected(get_option('ssw_llm_provider', ''), 'openai') ?>>
+                                    OpenAI ChatGPT
+                                </option>
+                                <option value="anthropic" <?= selected(get_option('ssw_llm_provider', ''), 'anthropic') ?>>
+                                    Anthropic Claude
+                                </option>
+                            </select>
+                            <p class="ssw-field-desc">
+                                Choose the LLM provider for product re-ranking and semantic analysis.
+                            </p>
+                        </td>
+                    </tr>
+                    <tr id="ssw-llm-model-row" style="display:none;">
+                        <th>
+                            <label for="ssw-llm-model">LLM Model</label>
+                        </th>
+                        <td>
+                            <select id="ssw-llm-model" name="llm_model"
+                            data-current="<?php echo esc_attr(get_option('ssw_llm_model', '')); ?>" style="min-width:200px;">
+                                <option value="">Select Provider First</option>
+                            </select>
+                            <p class="ssw-field-desc">
+                                Select the specific model to use for the selected provider.
+                            </p>
+                        </td>
+                    </tr>
+                    <tr id="ssw-llm-api-key-row" style="display:none;">
+                        <th>
+                            <label for="ssw-llm-api-key">LLM API Key</label>
+                        </th>
+                        <td>
+                            <input
+                                type="password"
+                                id="ssw-llm-api-key"
+                                name="llm_api_key"
+                                value="**************************"
+                                placeholder="Enter your API key..."
+                                style="min-width:300px;"
+                                <?php echo get_option('ssw_llm_api_key') ? 'disabled' : ''; ?>
+                            />
+                            <p class="ssw-field-desc" id="ssw-llm-api-key-desc">
+                                <!-- Populated dynamically by handleProviderChange() -->
+                            </p>
+                            <?php if (get_option('ssw_llm_api_key')): ?>
+                                <button type="button" class="ssw-btn ssw-btn-primary" id="ssw-change-api-key">Change API Key</button>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
                 </table>
 
                 <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--ssw-gray-200);">
@@ -221,7 +280,7 @@ $sync_status_text = match($progress['status']) {
 
             <!-- Progress Bar (hidden when idle) -->
             <div id="ssw-progress-wrap"
-                 style="<?= $progress['status'] === 'running' ? '' : 'display:none;' ?>
+                 style="<?= in_array($progress['status'], ['running', 'cancelled']) ? '' : 'display:none;' ?>
                         margin-bottom:20px;">
 
                 <div class="ssw-progress-track">
@@ -258,8 +317,18 @@ $sync_status_text = match($progress['status']) {
                 >
                     <?= $progress['status'] === 'running'
                         ? '<span class="ssw-spinner"></span> Syncing...'
-                        : '🔄 Sync All Products' ?>
+                        : ' Sync All Products' ?>
                 </button>
+                
+                <?php if ($progress['status'] === 'running'): ?>
+                <button
+                    id="ssw-cancel-sync-btn"
+                    class="ssw-btn ssw-btn-secondary"
+                    style="margin-left: 10px;"
+                >
+                    Cancel Sync
+                </button>
+                <?php endif; ?>
             </div>
 
             <p style="font-size:12px;color:var(--ssw-gray-400);margin-top:10px;">

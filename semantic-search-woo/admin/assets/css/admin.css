@@ -101,6 +101,13 @@
     letter-spacing: 0.5px;
 }
 
+.ssw-card-subtitle {
+    font-size: 11px;
+    color: var(--ssw-gray-400);
+    margin-top: 2px;
+    font-weight: 400;
+}
+
 .ssw-card-body {
     padding: 20px;
 }
@@ -173,8 +180,6 @@
     flex-direction: column;
     gap: 16px;
 }
-
-.ssw-quota-item {}
 
 .ssw-quota-header {
     display: flex;
@@ -287,6 +292,8 @@
 .ssw-badge.success  { background: #e6f4ea; color: #00a32a; }
 .ssw-badge.warning  { background: #fef9e7; color: #dba617; }
 .ssw-badge.plan     { background: #f0f0f1; color: #50575e; }
+.ssw-badge.neutral  { background: #f0f0f1; color: #50575e; }
+.ssw-badge.danger   { background: #fce8e8; color: #d63638; }
 
 /* ── Status Indicators ─────────────────────────────────────── */
 .ssw-status-list {
@@ -664,5 +671,8 @@
 @media (max-width: 480px) {
     .ssw-stats-grid {
         grid-template-columns: 1fr;
+    }
+    .ssw-nav-tabs {
+        flex-direction: column;
     }
 }

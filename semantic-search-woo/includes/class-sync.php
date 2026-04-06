@@ -269,6 +269,7 @@ class SSW_Sync {
 }
     private function send_batch(array $products, int $batch_num, int $total_batches): array {
         $api_url = get_option('ssw_api_url');
+        $encrypted_key = get_option('ssw_llm_api_key', '');
 
         $response = wp_remote_post($api_url . '/api/sync/batch', [
             'timeout' => 120,    // 2 min per batch — embedding takes time
@@ -277,7 +278,8 @@ class SSW_Sync {
                 'license_key'   => $this->license_key,
                 'products'      => $products,
                 'batch_number'  => $batch_num,
-                'total_batches' => $total_batches
+                'total_batches' => $total_batches,
+                'llm_api_key_encrypted' => $encrypted_key
             ])
         ]);
 
@@ -311,6 +313,31 @@ class SSW_Sync {
         $processed = (int) get_option('ssw_sync_processed', 0);
         if ($total === 0) return 0;
         return min((int) round(($processed / $total) * 100), 100);
+    }
+
+    public function cancel_sync(): array {
+        $status = get_option('ssw_sync_status', 'idle');
+        
+        if ($status !== 'running') {
+            return [
+                'success' => false,
+                'message' => 'No sync is currently running'
+            ];
+        }
+
+        // Update sync status to cancelled
+        update_option('ssw_sync_status', 'cancelled');
+        
+        // Get current progress for response
+        $progress = $this->get_progress();
+        
+        return [
+            'success' => true,
+            'message' => 'Sync cancelled successfully',
+            'processed' => $progress['processed'],
+            'total' => $progress['total'],
+            'percentage' => $progress['percentage']
+        ];
     }
 
     public function reset(): void {

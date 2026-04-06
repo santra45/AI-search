@@ -23,7 +23,9 @@
             this.config = {
                 apiUrl: semanticSearchConfig.apiUrl,
                 nonce: semanticSearchConfig.nonce,
+                addToCartNonce: semanticSearchConfig.addToCartNonce,
                 ajaxUrl: semanticSearchConfig.ajaxUrl,
+                licenseKey: semanticSearchConfig.licenseKey,
                 texts: semanticSearchConfig.texts,
                 limit: parseInt(this.container.data('limit')) || 12,
                 columns: parseInt(this.container.data('columns')) || 4,
@@ -281,11 +283,20 @@
                     signal: this.abortController.signal
                 });
 
-                this.displayResults(response.data || {});
+                if (response?.data?.products && response.data.products.length > 0) {
+                    // Proper success
+                    this.displayResults(response.data);
+                } else {
+                    // Valid empty result
+                    console.log('[SSW] No semantic results found');
+                    this.showNoResults();
+                    // DO NOT fallback here
+                }
             } catch (error) {
                 if (error.name !== 'AbortError') {
                     console.error('Search failed:', error);
-                    this.showError();
+                    // Try fallback to keyword search
+                    await this.performFallbackSearch();
                 }
             } finally {
                 this.isLoading = false;
@@ -377,24 +388,26 @@
             }
 
             return `
-                <div class="ssw-product-card" data-product-id="${product.id}" data-product-url="${productUrl}">
-                    <div class="ssw-product-image">
-                        ${imageUrl ? `<img src="${imageUrl}" alt="${product.name}" loading="lazy">` : ''}
-                        ${isOnSale ? '<div class="ssw-product-badge">Sale</div>' : ''}
-                    </div>
-                    <div class="ssw-product-content">
-                        <h3 class="ssw-product-title">${product.name}</h3>
-                        ${priceHtml}
-                        <div class="ssw-product-actions">
-                            ${isInStock ? 
-                                (isVariable ? 
-                                    `<button class="ssw-select-options" data-product-id="${product.id}">${this.config.texts.selectOptions}</button>` :
-                                    `<button class="ssw-add-to-cart" data-product-id="${product.id}">${this.config.texts.addToCart}</button>`
-                                ) :
-                                `<div class="ssw-out-of-stock">${this.config.texts.outOfStock}</div>`
-                            }
+                <div class="ssw-product-card" data-product-id="${product.id}">
+                    <a href="${productUrl}"class="ssw-product-link" data-product-id="${product.id}" data-product-url="${productUrl}">
+                        <div class="ssw-product-image">
+                            ${imageUrl ? `<img src="${imageUrl}" alt="${product.name}" loading="lazy">` : ''}
+                            ${isOnSale ? '<div class="ssw-product-badge">Sale</div>' : ''}
                         </div>
-                    </div>
+                        <div class="ssw-product-content">
+                            <h3 class="ssw-product-title">${product.name}</h3>
+                            ${priceHtml}
+                            <div class="ssw-product-actions">
+                                ${isInStock ? 
+                                    (isVariable ? 
+                                        `<button class="ssw-select-options" data-product-id="${product.id}">${this.config.texts.selectOptions}</button>` :
+                                        `<button class="ssw-add-to-cart" data-product-id="${product.id}">${this.config.texts.addToCart}</button>`
+                                    ) :
+                                    `<div class="ssw-out-of-stock">${this.config.texts.outOfStock}</div>`
+                                }
+                            </div>
+                        </div>
+                    </a>
                 </div>
             `;
         }
@@ -403,27 +416,18 @@
             // Add to cart buttons
             this.productsGrid.find('.ssw-add-to-cart').on('click', (e) => {
                 e.stopPropagation();
+                e.preventDefault(); // Prevent link navigation
                 this.addToCart($(e.currentTarget));
             });
 
             // Select options buttons
             this.productsGrid.find('.ssw-select-options').on('click', (e) => {
                 e.stopPropagation();
+                e.preventDefault(); // Prevent link navigation
                 const productCard = $(e.currentTarget).closest('.ssw-product-card');
-                const url = productCard.data('product-url');
+                const url = productCard.find('.ssw-product-link').attr('href');
                 if (url) {
                     window.location.href = url;
-                }
-            });
-
-            // Product card click
-            this.productsGrid.find('.ssw-product-card').on('click', (e) => {
-                if (!$(e.target).is('button')) {
-                    const productCard = $(e.currentTarget);
-                    const url = productCard.data('product-url');
-                    if (url) {
-                        window.location.href = url;
-                    }
                 }
             });
         }
@@ -434,15 +438,24 @@
             
             button.addClass('loading').text('Adding...');
             
+            // Ensure we have the correct AJAX URL
+            let ajaxUrl = semanticSearchConfig.ajaxUrl;
+            if (!ajaxUrl || ajaxUrl.indexOf('admin-ajax.php') === -1) {
+                // Fallback: construct the admin-ajax.php URL
+                const currentUrl = window.location.href;
+                const baseUrl = currentUrl.split('/wp-')[0];
+                ajaxUrl = baseUrl + '/wp-admin/admin-ajax.php';
+            }
+            
             try {
                 const response = await $.ajax({
-                    url: this.config.ajaxUrl,
+                    url: ajaxUrl,
                     method: 'POST',
                     data: {
                         action: 'ssw_add_to_cart',
                         product_id: productId,
                         quantity: 1,
-                        nonce: this.config.nonce
+                        nonce: semanticSearchConfig.addToCartNonce
                     }
                 });
 
@@ -512,6 +525,39 @@
         showNoResults() {
             this.resultsContainer.hide();
             this.noResults.show();
+        }
+
+        async performFallbackSearch() {
+            try {
+                // Call keyword search fallback endpoint
+                const response = await $.ajax({
+                    url: this.config.apiUrl + 'search-fallback',
+                    method: 'POST',
+                    data: {
+                        keywords: this.currentQuery.split(' '),
+                        query: this.currentQuery,
+                        limit: this.config.limit
+                    },
+                    beforeSend: (xhr) => {
+                        xhr.setRequestHeader('X-WP-Nonce', this.config.nonce);
+                    }
+                });
+
+                // Display fallback results
+                const fallbackData = {
+                    products: response.results || [],
+                    total: response.count || 0,
+                    total_pages: Math.ceil((response.count || 0) / this.config.limit),
+                    current_page: 1,
+                    search_time: 'N/A'
+                };
+
+                this.displayResults(fallbackData);
+                console.log('[SSW] Fallback to keyword search completed');
+            } catch (fallbackError) {
+                console.error('Fallback search also failed:', fallbackError);
+                this.showError();
+            }
         }
 
         showError() {

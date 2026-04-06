@@ -6,6 +6,7 @@ if (!defined('WP_UNINSTALL_PLUGIN')) exit;
 
 $options = [
     'ssw_api_url',
+    'ssw_client_id',
     'ssw_license_key',
     'ssw_result_limit',
     'ssw_wc_key',
@@ -19,6 +20,12 @@ $options = [
     'ssw_sync_processed',
     'ssw_sync_failed',
     'ssw_sync_started_at',
+    'ssw_enable_intent',
+    'ssw_llm_provider',
+    'ssw_llm_model',
+    'ssw_llm_api_key',
+    'ssw_setup_completed',
+
 ];
 
 foreach ($options as $option) {

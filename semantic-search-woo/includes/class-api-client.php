@@ -20,6 +20,14 @@ class SSW_API_Client {
      */
     public function search(string $query): array {
         $enable_intent = get_option('ssw_enable_intent', 0);
+        $llm_provider = get_option('ssw_llm_provider', '');
+        $llm_model = get_option('ssw_llm_model', '');
+        $encrypted_key = get_option('ssw_llm_api_key', '');
+        if ($llm_provider && $llm_model && $encrypted_key) {
+            $payload['llm_provider'] = $llm_provider;
+            $payload['llm_model'] = $llm_model;
+            $payload['llm_api_key_encrypted'] = $encrypted_key;
+        }
         
         $payload = [
             'license_key' => $this->license_key,
@@ -30,6 +38,13 @@ class SSW_API_Client {
         // Only include intent setting if enabled
         if ($enable_intent) {
             $payload['enable_intent'] = true;
+        }
+        
+        // Include LLM configuration if set
+        if ($llm_provider && $llm_model && $encrypted_key) {
+            $payload['llm_provider'] = $llm_provider;
+            $payload['llm_model'] = $llm_model;
+            $payload['llm_api_key_encrypted'] = $encrypted_key;
         }
         
         $response = wp_remote_post($this->api_url . '/api/search', [

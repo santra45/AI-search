@@ -23,6 +23,28 @@
                     <validate>validate-number validate-greater-than-zero</validate>
                 </field>
             </group>
+            <group id="llm_settings" translate="label" sortOrder="20" showInDefault="1" showInWebsite="1" showInStore="0">
+                <label>LLM Settings</label>
+                <field id="enable_intent" translate="label" type="select" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="0">
+                    <label>Enable Intent Analyzer</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment>Extract price filters and attributes from search queries using AI. When enabled, analyzes queries for price ranges, stock status, and product attributes (e.g., "red shoes under $50"). Note: This adds an extra API call but provides more accurate filtering.</comment>
+                </field>
+                <field id="llm_provider" translate="label" type="select" sortOrder="20" showInDefault="1" showInWebsite="1" showInStore="0">
+                    <label>LLM Provider</label>
+                    <source_model>Czar\SemanticSearch\Model\Config\Source\LLMProvider</source_model>
+                    <comment>Choose the LLM provider for product re-ranking and semantic analysis.</comment>
+                </field>
+                <field id="llm_model" translate="label" type="select" sortOrder="30" showInDefault="1" showInWebsite="1" showInStore="0">
+                    <label>LLM Model</label>
+                    <source_model>Czar\SemanticSearch\Model\Config\Source\LLMModel</source_model>
+                    <comment>Select the specific model to use for the selected provider.</comment>
+                </field>
+                <field id="llm_api_key" translate="label" type="obscure" sortOrder="40" showInDefault="1" showInWebsite="1" showInStore="0">
+                    <label>LLM API Key</label>
+                    <comment>Enter your API key for the selected LLM provider. This will be encrypted for security.</comment>
+                </field>
+            </group>
         </section>
     </system>
 </config>

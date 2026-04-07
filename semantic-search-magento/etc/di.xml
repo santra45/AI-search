@@ -1,11 +1,23 @@
 <?xml version="1.0"?>
 <config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:noNamespaceSchemaLocation="urn:magento:framework:ObjectManager/etc/config.xsd">
+
+    <!-- Register CLI Command -->
     <type name="Magento\Framework\Console\CommandListInterface">
         <arguments>
             <argument name="commands" xsi:type="array">
-                <item name="semantic_search_sync" xsi:type="object">Czar\SemanticSearch\Console\Command\SyncCatalogCommand</item>
+                <item name="semantic_search_sync" xsi:type="object">
+                    Czar\SemanticSearch\Console\Command\SyncCatalogCommand
+                </item>
             </argument>
         </arguments>
     </type>
+
+    <!-- Correct Plugin Declaration -->
+    <type name="Magento\Config\Model\Config">
+        <plugin name="semantic_search_config_plugin"
+                type="Czar\SemanticSearch\Plugin\Config\Model\Config\ConfigPlugin"
+                sortOrder="10"/>
+    </type>
+
 </config>

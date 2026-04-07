@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<acl xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+     xsi:noNamespaceSchemaLocation="urn:magento:framework:Acl/etc/acl.xsd">
+    <resources>
+        <resource id="Magento_Backend::admin">
+            <resource id="Magento_Backend::stores">
+                <resource id="Magento_Backend::stores_settings">
+                    <resource id="Magento_Config::config">
+                        <resource id="Czar_SemanticSearch::config" title="Semantic Search Config"/>
+                    </resource>
+                </resource>
+            </resource>
+            <resource id="Magento_Backend::content">
+                <resource id="Czar_SemanticSearch::dashboard" title="Semantic Search Dashboard"/>
+            </resource>
+        </resource>
+    </resources>
+</acl>

@@ -1,0 +1,29 @@
+.semantic-dashboard .semantic-cards {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(300px, 1fr));
+    gap: 12px;
+    margin: 16px 0;
+}
+.semantic-dashboard .card {
+    background: #fff;
+    border: 1px solid #d6d6d6;
+    border-radius: 6px;
+    padding: 12px;
+}
+.semantic-dashboard pre {
+    background: #f8f8f8;
+    padding: 8px;
+    border-radius: 4px;
+    overflow-x: auto;
+    max-height: 220px;
+}
+.semantic-dashboard .semantic-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+.semantic-dashboard .semantic-lists {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}

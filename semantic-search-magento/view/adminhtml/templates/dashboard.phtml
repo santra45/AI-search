@@ -1,0 +1,66 @@
+<div class="semantic-dashboard" data-dashboard-url="<?= $escaper->escapeUrl($block->getDashboardDataUrl()) ?>" data-sync-url="<?= $escaper->escapeUrl($block->getSyncNowUrl()) ?>">
+    <h1>Semantic Search Dashboard</h1>
+    <p><strong>Module Enabled:</strong> <?= $block->isEnabled() ? 'Yes' : 'No' ?></p>
+    <p><strong>FastAPI URL:</strong> <?= $escaper->escapeHtml($block->getApiUrl()) ?></p>
+
+    <div class="semantic-actions">
+        <button id="semantic-sync-now" class="action-primary">Run Full Sync</button>
+        <select id="semantic-days">
+            <option value="7">Last 7 days</option>
+            <option value="30">Last 30 days</option>
+            <option value="90">Last 90 days</option>
+        </select>
+        <button id="semantic-refresh" class="action-secondary">Refresh Dashboard</button>
+    </div>
+
+    <div class="semantic-cards">
+        <div class="card"><h3>Plan</h3><pre id="semantic-plan">-</pre></div>
+        <div class="card"><h3>Usage</h3><pre id="semantic-usage">-</pre></div>
+        <div class="card"><h3>Indexed Products</h3><pre id="semantic-products">-</pre></div>
+        <div class="card"><h3>Search Summary</h3><pre id="semantic-summary">-</pre></div>
+    </div>
+
+    <div class="semantic-lists">
+        <div>
+            <h3>Top Queries</h3>
+            <pre id="semantic-top-queries">[]</pre>
+        </div>
+        <div>
+            <h3>Zero Result Queries</h3>
+            <pre id="semantic-zero-results">[]</pre>
+        </div>
+    </div>
+</div>
+
+<script>
+require(['jquery'], function ($) {
+    function render(data) {
+        $('#semantic-plan').text(JSON.stringify(data.stats?.plan || {}, null, 2));
+        $('#semantic-usage').text(JSON.stringify(data.stats?.usage || {}, null, 2));
+        $('#semantic-products').text(JSON.stringify(data.stats?.indexed || {}, null, 2));
+        $('#semantic-summary').text(JSON.stringify(data.summary || {}, null, 2));
+        $('#semantic-top-queries').text(JSON.stringify(data.top_queries || [], null, 2));
+        $('#semantic-zero-results').text(JSON.stringify(data.zero_results || [], null, 2));
+    }
+
+    function loadDashboard() {
+        const root = $('.semantic-dashboard');
+        const days = $('#semantic-days').val();
+        $.get(root.data('dashboard-url'), {days: days}, function (data) {
+            render(data || {});
+        });
+    }
+
+    $('#semantic-refresh').on('click', loadDashboard);
+
+    $('#semantic-sync-now').on('click', function () {
+        const root = $('.semantic-dashboard');
+        $.post(root.data('sync-url'), {batch_size: 50}, function (data) {
+            alert('Sync finished: ' + JSON.stringify(data));
+            loadDashboard();
+        });
+    });
+
+    loadDashboard();
+});
+</script>

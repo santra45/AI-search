@@ -1,7 +1,9 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Header
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from backend.app.services.license_service import validate_license_key
+from typing import Optional
+
+from backend.app.services.license_service import validate_license_key, extract_license_key_from_authorization
 from backend.app.services.llm_key_service import decrypt_key
 from backend.app.services.database import get_db
 import time
@@ -42,8 +44,8 @@ def test_llm_api_key(provider: str, api_key: str, model: str = None) -> bool:
         return False
 
 class TestConnectionRequest(BaseModel):
-    license_key: str
-    llm_api_key_encrypted: str = None
+    license_key: Optional[str] = None
+    llm_api_key_encrypted: Optional[str] = None
     llm_provider: str = None
     llm_model: str = None
 
@@ -57,7 +59,9 @@ class TestConnectionResponse(BaseModel):
 
 @router.post("/test-connection")
 async def test_connection(
-    req: TestConnectionRequest, 
+    req: TestConnectionRequest,
+    authorization: Optional[str] = Header(None),
+    x_llm_api_key_encrypted: Optional[str] = Header(None, alias="X-LLM-API-Key-Encrypted"),
     db: Session = Depends(get_db)
 ):
     """
@@ -67,16 +71,22 @@ async def test_connection(
     start_time = time.time()
     
     try:
+        license_key = extract_license_key_from_authorization(authorization) or req.license_key
+        if not license_key:
+            raise ValueError("Missing license key")
+
+        llm_api_key_encrypted = x_llm_api_key_encrypted or req.llm_api_key_encrypted
+
         # Validate license key (this doesn't count towards usage)
-        license_data = validate_license_key(req.license_key, db)
+        license_data = validate_license_key(license_key, db)
         
         # Test LLM API key decryption and functionality if provided
         llm_configured = False
         llm_working = False
         
-        if req.llm_api_key_encrypted and req.llm_provider:
+        if llm_api_key_encrypted and req.llm_provider:
             try:
-                decrypted_key = decrypt_key(req.llm_api_key_encrypted, req.license_key)
+                decrypted_key = decrypt_key(llm_api_key_encrypted, license_key)
                 llm_configured = bool(decrypted_key)
                 
                 # Test actual API functionality if decryption succeeded

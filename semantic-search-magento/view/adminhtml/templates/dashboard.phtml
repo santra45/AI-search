@@ -1,0 +1,176 @@
+<?php /** @var \Czar\SemanticSearch\Block\Adminhtml\Dashboard $block */ ?>
+<div class="ssm-admin">
+    <script>
+        window.SemanticSearchDashboard = <?= /* @noEscape */ $block->getInitialConfigJson(); ?>;
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+    <div class="ssm-header">
+        <div>
+            <h1>Semantic Search</h1>
+            <p>Magento admin experience aligned with the WordPress plugin while staying Magento-native.</p>
+        </div>
+        <div class="ssm-pill" id="ssm-connection-pill">Checking connection</div>
+    </div>
+
+    <div class="ssm-tabs">
+        <button class="active" data-tab="dashboard">Dashboard</button>
+        <button data-tab="analytics">Analytics</button>
+        <button data-tab="usage">Usage</button>
+        <button data-tab="settings">Settings</button>
+        <button data-tab="status">Status</button>
+    </div>
+
+    <section class="ssm-panel active" data-panel="dashboard">
+        <div class="ssm-grid ssm-grid-4">
+            <div class="ssm-card"><span>Searches This Month</span><strong id="ssm-search-count">-</strong></div>
+            <div class="ssm-card"><span>Products Indexed</span><strong id="ssm-index-count">-</strong></div>
+            <div class="ssm-card"><span>Ingestions This Month</span><strong id="ssm-ingestion-count">-</strong></div>
+            <div class="ssm-card"><span>Plan</span><strong id="ssm-plan-name">-</strong></div>
+        </div>
+        <div class="ssm-grid ssm-grid-2">
+            <div class="ssm-card">
+                <h2>Monthly Quota</h2>
+                <div id="ssm-search-quota"></div>
+                <div id="ssm-product-quota"></div>
+            </div>
+            <div class="ssm-card">
+                <h2>Recent Searches</h2>
+                <table class="ssm-table">
+                    <thead><tr><th>Query</th><th>Results</th><th>Response</th><th>Source</th></tr></thead>
+                    <tbody id="ssm-recent-searches"></tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <section class="ssm-panel" data-panel="analytics">
+        <div class="ssm-grid ssm-grid-4">
+            <div class="ssm-card"><span>Cache Hit Rate</span><strong id="ssm-cache-rate">-</strong></div>
+            <div class="ssm-card"><span>Average Response</span><strong id="ssm-avg-response">-</strong></div>
+            <div class="ssm-card"><span>Zero Result Rate</span><strong id="ssm-zero-rate">-</strong></div>
+            <div class="ssm-card"><span>Total Searches</span><strong id="ssm-total-searches">-</strong></div>
+        </div>
+        <div class="ssm-grid ssm-grid-2">
+            <div class="ssm-card">
+                <div class="ssm-card-head">
+                    <h2>Search Volume</h2>
+                    <select id="ssm-analytics-days">
+                        <option value="7">Last 7 days</option>
+                        <option value="30">Last 30 days</option>
+                        <option value="90">Last 90 days</option>
+                    </select>
+                </div>
+                <canvas id="ssm-volume-chart"></canvas>
+            </div>
+            <div class="ssm-card">
+                <h2>Top Queries</h2>
+                <table class="ssm-table">
+                    <thead><tr><th>Query</th><th>Count</th><th>Avg Results</th></tr></thead>
+                    <tbody id="ssm-top-queries"></tbody>
+                </table>
+            </div>
+        </div>
+        <div class="ssm-card">
+            <h2>Zero Result Queries</h2>
+            <table class="ssm-table">
+                <thead><tr><th>Query</th><th>Count</th></tr></thead>
+                <tbody id="ssm-zero-results"></tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="ssm-panel" data-panel="usage">
+        <div class="ssm-grid ssm-grid-3">
+            <div class="ssm-card"><span>Total Requests</span><strong id="ssm-usage-requests">-</strong></div>
+            <div class="ssm-card"><span>Total Tokens</span><strong id="ssm-usage-tokens">-</strong></div>
+            <div class="ssm-card"><span>Total Cost</span><strong id="ssm-usage-cost">-</strong></div>
+        </div>
+        <div class="ssm-grid ssm-grid-2">
+            <div class="ssm-card">
+                <h2>Usage by Model</h2>
+                <table class="ssm-table">
+                    <thead><tr><th>Provider</th><th>Model</th><th>Type</th><th>Requests</th><th>Cost</th></tr></thead>
+                    <tbody id="ssm-usage-models"></tbody>
+                </table>
+            </div>
+            <div class="ssm-card">
+                <h2>Query Type Breakdown</h2>
+                <canvas id="ssm-query-type-chart"></canvas>
+            </div>
+        </div>
+        <div class="ssm-card">
+            <h2>Hourly Usage</h2>
+            <canvas id="ssm-hourly-chart"></canvas>
+        </div>
+    </section>
+
+    <section class="ssm-panel" data-panel="settings">
+        <div class="ssm-grid ssm-grid-2">
+            <div class="ssm-card">
+                <h2>API Configuration</h2>
+                <form id="ssm-settings-form">
+                    <label>Endpoint URL<input type="url" id="ssm-api-url"></label>
+                    <label>API Key<input type="text" id="ssm-api-key"></label>
+                    <label>License Key<textarea id="ssm-license-key" rows="3"></textarea></label>
+                    <label>Result Limit<input type="number" id="ssm-result-limit" min="1" max="50"></label>
+                    <label class="ssm-inline"><input type="checkbox" id="ssm-enable-intent"> Enable Intent Analyzer</label>
+                    <label>LLM Provider
+                        <select id="ssm-llm-provider">
+                            <option value="">Select provider</option>
+                            <option value="gemini">Google Gemini</option>
+                            <option value="openai">OpenAI</option>
+                            <option value="anthropic">Anthropic</option>
+                        </select>
+                    </label>
+                    <label>LLM Model<input type="text" id="ssm-llm-model"></label>
+                    <label>LLM API Key<input type="password" id="ssm-llm-api-key"></label>
+                    <label class="ssm-inline"><input type="checkbox" id="ssm-auto-sync-enabled"> Enable Scheduled Full Sync</label>
+                    <label>Cron Expression<input type="text" id="ssm-cron-expression"></label>
+                    <label>Batch Size<input type="number" id="ssm-batch-size" min="1"></label>
+                    <div class="ssm-actions">
+                        <button type="submit" class="action-primary">Save Settings</button>
+                        <button type="button" id="ssm-test-connection">Test Connection</button>
+                    </div>
+                    <div class="ssm-feedback" id="ssm-settings-feedback"></div>
+                </form>
+            </div>
+            <div class="ssm-card">
+                <h2>Product Sync</h2>
+                <div class="ssm-sync-meta">
+                    <div><span>Status</span><strong id="ssm-sync-status">Idle</strong></div>
+                    <div><span>Progress</span><strong id="ssm-sync-progress">0%</strong></div>
+                    <div><span>Processed</span><strong id="ssm-sync-processed">0 / 0</strong></div>
+                </div>
+                <div class="ssm-progress"><div id="ssm-progress-bar"></div></div>
+                <p id="ssm-sync-detail">Manual full sync mirrors the WordPress batch indexer and cron continues it in the background.</p>
+                <div class="ssm-actions">
+                    <button type="button" class="action-primary" id="ssm-start-sync">Sync All Products</button>
+                    <button type="button" id="ssm-cancel-sync">Cancel Sync</button>
+                    <button type="button" id="ssm-reset-sync">Reset State</button>
+                </div>
+                <div class="ssm-feedback" id="ssm-sync-feedback"></div>
+            </div>
+        </div>
+    </section>
+
+    <section class="ssm-panel" data-panel="status">
+        <div class="ssm-grid ssm-grid-2">
+            <div class="ssm-card">
+                <div class="ssm-card-head">
+                    <h2>Connection Status</h2>
+                    <button type="button" id="ssm-refresh-status">Run Diagnostic</button>
+                </div>
+                <div id="ssm-status-rows"></div>
+            </div>
+            <div class="ssm-card">
+                <h2>Account Details</h2>
+                <div id="ssm-account-details"></div>
+            </div>
+        </div>
+        <div class="ssm-card">
+            <h2>Module Debug</h2>
+            <div id="ssm-debug-details"></div>
+        </div>
+    </section>
+</div>

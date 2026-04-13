@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<page xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:noNamespaceSchemaLocation="urn:magento:framework:View/Layout/etc/page_configuration.xsd">
+    <head>
+        <css src="Czar_SemanticSearch::css/dashboard.css"/>
+        <script src="Czar_SemanticSearch::js/dashboard.js"/>
+    </head>
+    <body>
+        <referenceContainer name="content">
+            <block class="Czar\SemanticSearch\Block\Adminhtml\Dashboard"
+                   name="czar.semanticsearch.dashboard"
+                   template="Czar_SemanticSearch::dashboard.phtml"/>
+        </referenceContainer>
+    </body>
+</page>

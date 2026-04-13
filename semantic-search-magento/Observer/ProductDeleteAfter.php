@@ -21,7 +21,14 @@ class ProductDeleteAfter implements ObserverInterface
             return;
         }
 
-        $result = $this->syncService->deleteSingleById((int) $product->getId());
-        $this->logger->info('SemanticSearch product delete sync', ['product_id' => $product->getId(), 'result' => $result]);
+        try {
+            $result = $this->syncService->deleteSingleById((int) $product->getId(), (int) $product->getStoreId());
+            $this->logger->info('SemanticSearch product delete sync', ['product_id' => $product->getId(), 'result' => $result]);
+        } catch (\Throwable $exception) {
+            $this->logger->warning('SemanticSearch product delete sync failed', [
+                'product_id' => $product->getId(),
+                'message' => $exception->getMessage(),
+            ]);
+        }
     }
 }

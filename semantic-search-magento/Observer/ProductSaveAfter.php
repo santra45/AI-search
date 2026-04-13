@@ -21,7 +21,14 @@ class ProductSaveAfter implements ObserverInterface
             return;
         }
 
-        $result = $this->syncService->syncSingleById((int) $product->getId());
-        $this->logger->info('SemanticSearch product save sync', ['product_id' => $product->getId(), 'result' => $result]);
+        try {
+            $result = $this->syncService->syncSingleById((int) $product->getId(), (int) $product->getStoreId());
+            $this->logger->info('SemanticSearch product save sync', ['product_id' => $product->getId(), 'result' => $result]);
+        } catch (\Throwable $exception) {
+            $this->logger->warning('SemanticSearch product save sync failed', [
+                'product_id' => $product->getId(),
+                'message' => $exception->getMessage(),
+            ]);
+        }
     }
 }

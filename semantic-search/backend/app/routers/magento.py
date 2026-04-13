@@ -1,6 +1,6 @@
-from fastapi import APIRouter, HTTPException, Depends, Request
+from fastapi import APIRouter, HTTPException, Depends, Request, Header
 from pydantic import BaseModel, Field
-from typing import List
+from typing import List, Optional
 from sqlalchemy.orm import Session
 
 from backend.app.services.cache_service import get_cached_embedding, get_cached_results, set_cached_embedding, set_cached_results, invalidate_client_results
@@ -8,7 +8,7 @@ from backend.app.services.database import get_db
 from backend.app.services.domain_auth_service import DomainAuthorizer
 from backend.app.services.embedder import embed_query, embed_document
 from backend.app.services.intent_service import analyze_intent
-from backend.app.services.license_service import validate_license_key, check_search_quota, increment_search_count, log_search, increment_ingest_count
+from backend.app.services.license_service import validate_license_key, check_search_quota, increment_search_count, log_search, increment_ingest_count, extract_license_key_from_authorization
 from backend.app.services.llm_key_service import decrypt_key
 from backend.app.services.llm_rerank_service import llm_rerank_products, should_use_llm_reranking
 from backend.app.services.product_service import build_product_text, extract_payload
@@ -20,13 +20,13 @@ router = APIRouter()
 
 
 class MagentoSearchRequest(BaseModel):
-    license_key: str
+    license_key: Optional[str] = None
     query: str
     limit: int = 10
     enable_intent: bool = False
     llm_provider: str = None
     llm_model: str = None
-    llm_api_key_encrypted: str = None
+    llm_api_key_encrypted: Optional[str] = None
 
 
 class MagentoProduct(BaseModel):
@@ -50,27 +50,58 @@ class MagentoProduct(BaseModel):
 
 
 class MagentoSyncBatchRequest(BaseModel):
-    license_key: str
+    license_key: Optional[str] = None
     products: List[MagentoProduct]
     batch_number: int = 1
     total_batches: int = 1
-    llm_api_key_encrypted: str = None
+    llm_api_key_encrypted: Optional[str] = None
 
 
 class MagentoDeleteRequest(BaseModel):
-    license_key: str
+    license_key: Optional[str] = None
     product_id: str
 
 
+def resolve_headers(
+    authorization: Optional[str],
+    x_api_key: Optional[str],
+    x_llm_api_key_encrypted: Optional[str],
+    request_license: Optional[str],
+    request_llm_key: Optional[str],
+):
+    return {
+        "license_key": extract_license_key_from_authorization(authorization) or request_license,
+        "api_key": x_api_key,
+        "llm_api_key_encrypted": x_llm_api_key_encrypted or request_llm_key,
+    }
+
+
 @router.post("/magento/search")
-async def magento_search(req: MagentoSearchRequest, request: Request, db: Session = Depends(get_db)):
+async def magento_search(
+    req: MagentoSearchRequest,
+    request: Request,
+    authorization: Optional[str] = Header(None),
+    x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
+    x_llm_api_key_encrypted: Optional[str] = Header(None, alias="X-LLM-API-Key-Encrypted"),
+    db: Session = Depends(get_db)
+):
     start_time = time.time()
 
     if not req.query.strip():
         raise HTTPException(status_code=400, detail="Query cannot be empty")
 
+    headers = resolve_headers(
+        authorization,
+        x_api_key,
+        x_llm_api_key_encrypted,
+        req.license_key,
+        req.llm_api_key_encrypted,
+    )
+    if not headers["license_key"]:
+        raise HTTPException(status_code=401, detail="Missing Authorization header")
+
     try:
-        license_data = validate_license_key(req.license_key, db)
+        license_data = validate_license_key(headers["license_key"], db)
     except ValueError as exc:
         raise HTTPException(status_code=403, detail=str(exc))
 
@@ -78,7 +109,7 @@ async def magento_search(req: MagentoSearchRequest, request: Request, db: Sessio
     domain = license_data["domain"]
 
     authorizer = DomainAuthorizer(db)
-    authorizer.validate_request(request, license_data)
+    authorizer.validate_request(request, license_data, api_key=headers["api_key"])
 
     if not check_search_quota(db, client_id, license_data["search_limit"]):
         raise HTTPException(status_code=429, detail="Monthly search limit reached. Please upgrade your plan.")
@@ -93,7 +124,13 @@ async def magento_search(req: MagentoSearchRequest, request: Request, db: Sessio
     # Perform intent analysis if enabled
     if req.enable_intent:
         try:
-            intent = analyze_intent(query, req.llm_provider, req.llm_model, req.llm_api_key_encrypted, req.license_key)
+            intent = analyze_intent(
+                query,
+                req.llm_provider,
+                req.llm_model,
+                headers["llm_api_key_encrypted"],
+                headers["license_key"],
+            )
             if intent:
                 min_price = intent.get('min_price')
                 max_price = intent.get('max_price')
@@ -112,9 +149,9 @@ async def magento_search(req: MagentoSearchRequest, request: Request, db: Sessio
     query_vector = get_cached_embedding(query)
     if query_vector is None:
         embedding_api_key = None
-        if req.llm_api_key_encrypted:
+        if headers["llm_api_key_encrypted"]:
             try:
-                embedding_api_key = decrypt_key(req.llm_api_key_encrypted, req.license_key)
+                embedding_api_key = decrypt_key(headers["llm_api_key_encrypted"], headers["license_key"])
             except Exception:
                 embedding_api_key = None
         query_vector = embed_query(query, embedding_api_key, client_id)
@@ -147,9 +184,9 @@ async def magento_search(req: MagentoSearchRequest, request: Request, db: Sessio
     # Uses Gemini to analyze semantic relevance and filter out irrelevant products
     if should_use_llm_reranking(req.query, results):
         print(f"🤖 Applying LLM re-ranking for query: '{req.query}'")
-        if req.llm_api_key_encrypted:
+        if headers["llm_api_key_encrypted"]:
             try:
-                llm_api_key = decrypt_key(req.llm_api_key_encrypted, req.license_key)   
+                llm_api_key = decrypt_key(headers["llm_api_key_encrypted"], headers["license_key"])
             except Exception as e:
                 print(f"❌ Decryption failed: {e}")
                 llm_api_key = None
@@ -184,9 +221,26 @@ async def magento_search(req: MagentoSearchRequest, request: Request, db: Sessio
 
 
 @router.post("/magento/sync/batch")
-def magento_sync_batch(req: MagentoSyncBatchRequest, request: Request, db: Session = Depends(get_db)):
+def magento_sync_batch(
+    req: MagentoSyncBatchRequest,
+    request: Request,
+    authorization: Optional[str] = Header(None),
+    x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
+    x_llm_api_key_encrypted: Optional[str] = Header(None, alias="X-LLM-API-Key-Encrypted"),
+    db: Session = Depends(get_db)
+):
+    headers = resolve_headers(
+        authorization,
+        x_api_key,
+        x_llm_api_key_encrypted,
+        req.license_key,
+        req.llm_api_key_encrypted,
+    )
+    if not headers["license_key"]:
+        raise HTTPException(status_code=401, detail="Missing Authorization header")
+
     try:
-        license_data = validate_license_key(req.license_key, db)
+        license_data = validate_license_key(headers["license_key"], db)
     except ValueError as exc:
         raise HTTPException(status_code=403, detail=str(exc))
 
@@ -194,7 +248,7 @@ def magento_sync_batch(req: MagentoSyncBatchRequest, request: Request, db: Sessi
     domain = license_data["domain"]
 
     authorizer = DomainAuthorizer(db)
-    authorizer.validate_request(request, license_data)
+    authorizer.validate_request(request, license_data, api_key=headers["api_key"])
 
     current_count = get_client_product_count(client_id, domain)
     incoming_count = len(req.products)
@@ -205,9 +259,9 @@ def magento_sync_batch(req: MagentoSyncBatchRequest, request: Request, db: Sessi
         )
 
     embedding_api_key = None
-    if req.llm_api_key_encrypted:
+    if headers["llm_api_key_encrypted"]:
         try:
-            embedding_api_key = decrypt_key(req.llm_api_key_encrypted, req.license_key)
+            embedding_api_key = decrypt_key(headers["llm_api_key_encrypted"], headers["license_key"])
         except Exception:
             embedding_api_key = None
 
@@ -243,14 +297,24 @@ def magento_sync_batch(req: MagentoSyncBatchRequest, request: Request, db: Sessi
 
 
 @router.post("/magento/sync/delete")
-def magento_sync_delete(req: MagentoDeleteRequest, request: Request, db: Session = Depends(get_db)):
+def magento_sync_delete(
+    req: MagentoDeleteRequest,
+    request: Request,
+    authorization: Optional[str] = Header(None),
+    x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
+    db: Session = Depends(get_db)
+):
+    headers = resolve_headers(authorization, x_api_key, None, req.license_key, None)
+    if not headers["license_key"]:
+        raise HTTPException(status_code=401, detail="Missing Authorization header")
+
     try:
-        license_data = validate_license_key(req.license_key, db)
+        license_data = validate_license_key(headers["license_key"], db)
     except ValueError as exc:
         raise HTTPException(status_code=403, detail=str(exc))
 
     authorizer = DomainAuthorizer(db)
-    authorizer.validate_request(request, license_data)
+    authorizer.validate_request(request, license_data, api_key=headers["api_key"])
 
     delete_product(license_data["client_id"], req.product_id)
     invalidate_client_results(license_data["client_id"])

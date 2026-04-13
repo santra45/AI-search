@@ -33,6 +33,9 @@ class ConfigPlugin
         if (isset($data['groups']['llm_settings']['fields']['llm_api_key']['value'])) {
             $apiKey = $data['groups']['llm_settings']['fields']['llm_api_key']['value'];
             $licenseKey = $data['groups']['general']['fields']['license_key']['value'] ?? '';
+            if ($apiKey === '**************************') {
+                return;
+            }
             
             // If API key is provided and not already encrypted
             if (!empty($apiKey) && $this->isPlainTextApiKey($apiKey)) {

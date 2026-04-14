@@ -312,6 +312,98 @@
 }
 
 /* Product Cards */
+/* Result Cards (shared styles) */
+.ssw-search-container .ssw-result-card {
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    cursor: pointer;
+    animation: ssw-fade-in 0.5s ease;
+}
+
+.ssw-search-container .ssw-result-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.ssw-search-container .ssw-result-link {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+}
+
+.ssw-search-container .ssw-result-content {
+    padding: 16px;
+}
+
+.ssw-search-container .ssw-result-type-badge {
+    display: inline-block;
+    background: #0073aa;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+}
+
+.ssw-search-container .ssw-result-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+    margin: 0 0 8px 0;
+    line-height: 1.4;
+    overflow: hidden;
+    line-clamp: 2;
+    -webkit-line-clamp: 2;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    max-height: 2.8em;
+}
+
+.ssw-search-container .ssw-result-excerpt {
+    font-size: 14px;
+    color: #666;
+    margin: 0 0 12px 0;
+    line-height: 1.5;
+    overflow: hidden;
+    line-clamp: 3;
+    -webkit-line-clamp: 3;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    max-height: 4.5em;
+}
+
+.ssw-search-container .ssw-result-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: 12px;
+    color: #999;
+}
+
+.ssw-search-container .ssw-result-author,
+.ssw-search-container .ssw-result-date,
+.ssw-search-container .ssw-result-categories,
+.ssw-search-container .ssw-result-tags {
+    display: inline-flex;
+    align-items: center;
+}
+
+/* Page Cards */
+.ssw-search-container .ssw-page-card .ssw-result-type-badge {
+    background: #28a745;
+}
+
+/* Post Cards */
+.ssw-search-container .ssw-post-card .ssw-result-type-badge {
+    background: #fd7e14;
+}
+
+/* Product Cards */
 .ssw-search-container .ssw-product-card {
     background: white;
     border-radius: 12px;
@@ -380,14 +472,11 @@
     margin: 0 0 8px 0;
     line-height: 1.4;
     overflow: hidden;
-    /* Standard property */
     line-clamp: 2;
-    /* Webkit prefixes */
     -webkit-line-clamp: 2;
     display: -webkit-box;
     -webkit-box-orient: vertical;
-    /* Fallback for browsers that don't support line-clamp */
-    max-height: 2.8em; /* 2 lines * 1.4 line-height */
+    max-height: 2.8em;
 }
 
 .ssw-search-container .ssw-product-price {

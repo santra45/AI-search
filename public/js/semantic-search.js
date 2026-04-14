@@ -283,7 +283,7 @@
                     signal: this.abortController.signal
                 });
 
-                if (response?.data?.products && response.data.products.length > 0) {
+                if (response?.data?.results && response.data.results.length > 0) {
                     // Proper success
                     this.displayResults(response.data);
                 } else {
@@ -317,13 +317,13 @@
         }
 
         displayResults(data) {
-            if (!data.products || !data.products.length) {
+            if (!data.results || !data.results.length) {
                 this.showNoResults();
                 return;
             }
 
             this.totalPages = data.total_pages || 1;
-            this.renderProducts(data.products);
+            this.renderResults(data.results);
             this.updateResultsHeader(data);
             
             this.resultsContainer.show();
@@ -338,10 +338,17 @@
             }
         }
 
-        renderProducts(products) {
+        renderResults(results) {
             let html = '';
-            products.forEach(product => {
-                html += this.createProductCardHTML(product);
+            results.forEach(item => {
+                const contentType = item.content_type || 'product';
+                if (contentType === 'product') {
+                    html += this.createProductCardHTML(item);
+                } else if (contentType === 'page') {
+                    html += this.createPageCardHTML(item);
+                } else if (contentType === 'post') {
+                    html += this.createPostCardHTML(item);
+                }
             });
             
             if (this.currentPage === 1) {
@@ -350,8 +357,8 @@
                 this.productsGrid.append(html);
             }
 
-            // Bind product card events
-            this.bindProductCardEvents();
+            // Bind card events
+            this.bindCardEvents();
         }
 
         createProductCardHTML(product) {
@@ -412,15 +419,65 @@
             `;
         }
 
-        bindProductCardEvents() {
-            // Add to cart buttons
+        createPageCardHTML(page) {
+            const pageUrl = page.permalink;
+            const excerpt = page.excerpt || '';
+            const date = page.date ? new Date(page.date).toLocaleDateString() : '';
+            const author = page.author || '';
+
+            return `
+                <div class="ssw-result-card ssw-page-card" data-page-id="${page.id}">
+                    <a href="${pageUrl}" class="ssw-result-link">
+                        <div class="ssw-result-content">
+                            <div class="ssw-result-type-badge">Page</div>
+                            <h3 class="ssw-result-title">${page.title}</h3>
+                            ${excerpt ? `<p class="ssw-result-excerpt">${excerpt}</p>` : ''}
+                            <div class="ssw-result-meta">
+                                ${author ? `<span class="ssw-result-author">By ${author}</span>` : ''}
+                                ${date ? `<span class="ssw-result-date">${date}</span>` : ''}
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            `;
+        }
+
+        createPostCardHTML(post) {
+            const postUrl = post.permalink;
+            const excerpt = post.excerpt || '';
+            const date = post.date ? new Date(post.date).toLocaleDateString() : '';
+            const author = post.author || '';
+            const categories = post.categories || '';
+            const tags = post.tags || '';
+
+            return `
+                <div class="ssw-result-card ssw-post-card" data-post-id="${post.id}">
+                    <a href="${postUrl}" class="ssw-result-link">
+                        <div class="ssw-result-content">
+                            <div class="ssw-result-type-badge">Blog Post</div>
+                            <h3 class="ssw-result-title">${post.title}</h3>
+                            ${excerpt ? `<p class="ssw-result-excerpt">${excerpt}</p>` : ''}
+                            <div class="ssw-result-meta">
+                                ${author ? `<span class="ssw-result-author">By ${author}</span>` : ''}
+                                ${date ? `<span class="ssw-result-date">${date}</span>` : ''}
+                                ${categories ? `<span class="ssw-result-categories">${categories}</span>` : ''}
+                                ${tags ? `<span class="ssw-result-tags">${tags}</span>` : ''}
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            `;
+        }
+
+        bindCardEvents() {
+            // Add to cart buttons (products only)
             this.productsGrid.find('.ssw-add-to-cart').on('click', (e) => {
                 e.stopPropagation();
                 e.preventDefault(); // Prevent link navigation
                 this.addToCart($(e.currentTarget));
             });
 
-            // Select options buttons
+            // Select options buttons (products only)
             this.productsGrid.find('.ssw-select-options').on('click', (e) => {
                 e.stopPropagation();
                 e.preventDefault(); // Prevent link navigation
@@ -491,9 +548,9 @@
             const count = header.find('.ssw-results-count');
             const time = header.find('.ssw-results-time');
             
-            if (data.products && data.products.length > 0) {
+            if (data.results && data.results.length > 0) {
                 title.text(`Results for "${this.currentQuery}"`);
-                count.text(`${data.total} products found`);
+                count.text(`${data.total} results found`);
                 time.text(`${data.search_time}s`);
                 header.show();
             }
@@ -545,12 +602,17 @@
 
                 // Display fallback results
                 const fallbackData = {
-                    products: response.results || [],
+                    results: response.results || [],
                     total: response.count || 0,
                     total_pages: Math.ceil((response.count || 0) / this.config.limit),
                     current_page: 1,
                     search_time: 'N/A'
                 };
+
+                // Add content_type to fallback results
+                fallbackData.results.forEach(result => {
+                    result.content_type = 'product';
+                });
 
                 this.displayResults(fallbackData);
                 console.log('[SSW] Fallback to keyword search completed');
@@ -603,8 +665,8 @@
                     }
                 });
 
-                if (response.data && response.data.products) {
-                    this.renderProducts(response.data.products);
+                if (response.data && response.data.results) {
+                    this.renderResults(response.data.results);
                     
                     if (this.currentPage >= this.totalPages) {
                         this.container.find('.ssw-load-more-container').hide();

@@ -277,3 +277,101 @@ def extract_payload(p: dict) -> dict:
         "average_rating": float(p.get("average_rating") or "0"),
         **attr_map   # size, color, ram, storage, material — whatever the store has
     }
+
+
+def build_page_text(p: dict) -> str:
+    """
+    Build embedding text for WordPress pages.
+    """
+    parts = []
+
+    title = p.get("title", "").strip()
+    if title:
+        parts.append(f"Page: {title}")
+
+    excerpt = strip_html(p.get("excerpt", "")).strip()
+    if excerpt:
+        parts.append(f"Summary: {excerpt}")
+
+    content = strip_html(p.get("content", "")).strip()[:800]
+    if content:
+        parts.append(f"Content: {content}")
+
+    author = p.get("author", "").strip()
+    if author:
+        parts.append(f"Author: {author}")
+
+    date = p.get("date", "").strip()
+    if date:
+        parts.append(f"Date: {date}")
+
+    return "\n".join(parts)
+
+
+def extract_page_payload(p: dict) -> dict:
+    """
+    Build payload for WordPress pages.
+    """
+    return {
+        "title":     p.get("title", ""),
+        "content":   strip_html(p.get("content", ""))[:800],
+        "excerpt":   strip_html(p.get("excerpt", "")),
+        "permalink": p.get("permalink", ""),
+        "author":    p.get("author", ""),
+        "date":      p.get("date", ""),
+        "status":    p.get("status", "publish"),
+    }
+
+
+def build_post_text(p: dict) -> str:
+    """
+    Build embedding text for WordPress blog posts.
+    """
+    parts = []
+
+    title = p.get("title", "").strip()
+    if title:
+        parts.append(f"Blog Post: {title}")
+
+    excerpt = strip_html(p.get("excerpt", "")).strip()
+    if excerpt:
+        parts.append(f"Summary: {excerpt}")
+
+    content = strip_html(p.get("content", "")).strip()[:800]
+    if content:
+        parts.append(f"Content: {content}")
+
+    categories = p.get("categories", "").strip()
+    if categories:
+        parts.append(f"Categories: {categories}")
+
+    tags = p.get("tags", "").strip()
+    if tags:
+        parts.append(f"Tags: {tags}")
+
+    author = p.get("author", "").strip()
+    if author:
+        parts.append(f"Author: {author}")
+
+    date = p.get("date", "").strip()
+    if date:
+        parts.append(f"Date: {date}")
+
+    return "\n".join(parts)
+
+
+def extract_post_payload(p: dict) -> dict:
+    """
+    Build payload for WordPress blog posts.
+    """
+    return {
+        "title":       p.get("title", ""),
+        "content":     strip_html(p.get("content", ""))[:800],
+        "excerpt":     strip_html(p.get("excerpt", "")),
+        "permalink":   p.get("permalink", ""),
+        "author":      p.get("author", ""),
+        "date":        p.get("date", ""),
+        "categories":  p.get("categories", ""),
+        "tags":        p.get("tags", ""),
+        "status":      p.get("status", "publish"),
+    }

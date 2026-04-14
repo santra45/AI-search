@@ -552,7 +552,9 @@
                 enable_intent: $('#ssw-enable-intent').is(':checked') ? 1 : 0,
                 llm_provider: $('#ssw-llm-provider').val(),
                 llm_model: $('#ssw-llm-model').val(),
-                llm_api_key: $('#ssw-llm-api-key').is(':disabled') ? '' : $('#ssw-llm-api-key').val().trim()
+                llm_api_key: $('#ssw-llm-api-key').is(':disabled') ? '' : $('#ssw-llm-api-key').val().trim(),
+                sync_pages:   $('#ssw-sync-pages').is(':checked') ? 1 : 0,
+                sync_posts:   $('#ssw-sync-posts').is(':checked') ? 1 : 0
             }).done(res => {
                 if (res.success) {
                     showInlineResult($result, '✅ Settings saved', 'success');

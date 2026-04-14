@@ -34,6 +34,8 @@ function ssw_activate(): void {
     if (!get_option('ssw_api_url')) {
         update_option('ssw_api_url',      'http://127.0.0.1:8000');
         update_option('ssw_result_limit', 10);
+        update_option('ssw_sync_pages', 0);  // Default: don't sync pages
+        update_option('ssw_sync_posts', 0);  // Default: don't sync posts
     }
 
     // Generate webhook secret if not set

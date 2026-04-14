@@ -223,6 +223,48 @@ $sync_status_text = match($progress['status']) {
                             <?php endif; ?>
                         </td>
                     </tr>
+                    <tr>
+                        <th>
+                            <label for="ssw-sync-pages">Sync Pages</label>
+                        </th>
+                        <td>
+                            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                                <input
+                                    type="checkbox"
+                                    id="ssw-sync-pages"
+                                    name="sync_pages"
+                                    value="1"
+                                    <?= checked(get_option('ssw_sync_pages', 0), 1, false) ?>
+                                />
+                                <span>Include WordPress pages in semantic search</span>
+                            </label>
+                            <p class="ssw-field-desc">
+                                When enabled, WordPress pages (About, Contact, etc.) will be indexed
+                                and appear in search results when relevant to the query.
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>
+                            <label for="ssw-sync-posts">Sync Blog Posts</label>
+                        </th>
+                        <td>
+                            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                                <input
+                                    type="checkbox"
+                                    id="ssw-sync-posts"
+                                    name="sync_posts"
+                                    value="1"
+                                    <?= checked(get_option('ssw_sync_posts', 0), 1, false) ?>
+                                />
+                                <span>Include blog posts in semantic search</span>
+                            </label>
+                            <p class="ssw-field-desc">
+                                When enabled, blog posts will be indexed and appear in search results
+                                when relevant to the query.
+                            </p>
+                        </td>
+                    </tr>
                 </table>
 
                 <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--ssw-gray-200);">

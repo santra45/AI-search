@@ -344,14 +344,38 @@ class SSW_Sync {
 
     private function format_page($page): ?array {
         if (!$page) return null;
-        
+
+        // 1. Get raw content
+        $raw_content = get_post_field('post_content', $page);
+
+        // 2. Identify WooCommerce System Pages to exclude them
+        if (class_exists('WooCommerce')) {
+            $system_pages = [
+                wc_get_page_id('cart'),
+                wc_get_page_id('checkout'),
+                wc_get_page_id('myaccount'),
+                wc_get_page_id('refund_returns'),
+            ];
+            if (in_array((int)$page, $system_pages)) return null;
+        }
+
+        // 3. Clean content: Strip HTML AND Strip Shortcodes
+        // This removes [woocommerce_my_account] entirely
+        $clean_content = wp_strip_all_tags(strip_shortcodes($raw_content));
+        $clean_content = trim($clean_content);
+
+        // 4. Skip if the page has no actual text left (useless for semantic search)
+        if (empty($clean_content) || strlen($clean_content) < 20) {
+            return null;
+        }
+
         $author_id = get_post_field('post_author', $page);
         $author = get_the_author_meta('display_name', $author_id);
         
         return [
             'page_id'   => (string) $page,
             'title'     => get_the_title($page),
-            'content'   => wp_strip_all_tags(get_post_field('post_content', $page)),
+            'content'   => $clean_content,
             'excerpt'   => get_the_excerpt($page),
             'permalink' => get_permalink($page),
             'author'    => $author,

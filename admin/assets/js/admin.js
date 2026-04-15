@@ -238,6 +238,8 @@
             // Day range selector
             $('#ssw-days-filter').on('change', (e) => {
                 this.days = parseInt(e.target.value);
+                const selectedText = e.target.options[e.target.selectedIndex].text;
+                $('#ssw-chart-period').text(selectedText);
                 this.load();
             });
 

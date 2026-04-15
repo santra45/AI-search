@@ -523,6 +523,51 @@
     margin: 4px 0;
 }
 
+/* ── Usage Block ───────────────────────────────────────── */
+
+.summary-usage.ssw-table-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.25rem;
+    padding: 0.5rem 0;
+}
+
+.ssw-usage-block {
+    flex: 1;
+    min-width: 200px; /* Adjust based on your layout needs */
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ssw-usage-block:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    transform: translateY(-2px);
+}
+
+.ssw-usage-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+    color: #64748b;
+    margin-bottom: 0.5rem;
+}
+
+#ssw-usage-total-requests,
+#ssw-usage-total-tokens,
+#ssw-usage-total-cost {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #1e293b;
+    font-family: 'Inter', system-ui, sans-serif;
+}
+
 /* ── Two Column Layout ─────────────────────────────────────── */
 .ssw-two-col {
     display: grid;

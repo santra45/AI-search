@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:framework:Event/etc/events.xsd">
+    <event name="catalog_product_save_after">
+        <observer name="czar_aichatbot_product_save" instance="Czar\AiChatbot\Observer\ProductSaveAfter"/>
+    </event>
+    <event name="catalog_product_delete_after_done">
+        <observer name="czar_aichatbot_product_delete" instance="Czar\AiChatbot\Observer\ProductDeleteAfter"/>
+    </event>
+    <event name="cms_page_save_after">
+        <observer name="czar_aichatbot_cms_page_save" instance="Czar\AiChatbot\Observer\CmsPageSaveAfter"/>
+    </event>
+    <event name="cms_page_delete_after">
+        <observer name="czar_aichatbot_cms_page_delete" instance="Czar\AiChatbot\Observer\CmsPageDeleteAfter"/>
+    </event>
+    <event name="cms_block_save_after">
+        <observer name="czar_aichatbot_cms_block_save" instance="Czar\AiChatbot\Observer\CmsBlockSaveAfter"/>
+    </event>
+    <event name="cms_block_delete_after">
+        <observer name="czar_aichatbot_cms_block_delete" instance="Czar\AiChatbot\Observer\CmsBlockDeleteAfter"/>
+    </event>
+    <event name="review_save_after">
+        <observer name="czar_aichatbot_review_save" instance="Czar\AiChatbot\Observer\ReviewSaveAfter"/>
+    </event>
+    <event name="review_delete_after">
+        <observer name="czar_aichatbot_review_delete" instance="Czar\AiChatbot\Observer\ReviewDeleteAfter"/>
+    </event>
+</config>

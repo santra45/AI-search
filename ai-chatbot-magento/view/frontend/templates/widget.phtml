@@ -1,0 +1,22 @@
+<?php
+/** @var \Magento\Framework\View\Element\Template $block */
+$objectManager = \Magento\Framework\App\ObjectManager::getInstance();
+$config = $objectManager->get(\Czar\AiChatbot\Helper\Config::class);
+$storeManager = $objectManager->get(\Magento\Store\Model\StoreManagerInterface::class);
+$storeId = (int) $storeManager->getStore()->getId();
+if (!$config->isChatReady($storeId) || !$config->isWidgetEnabled($storeId)) {
+    return;
+}
+$payload = [
+    'startUrl' => $block->getUrl('aichatbot/ajax/start'),
+    'messageUrl' => $block->getUrl('aichatbot/ajax/message'),
+    'historyUrl' => $block->getUrl('aichatbot/ajax/history'),
+    'resetUrl' => $block->getUrl('aichatbot/ajax/reset'),
+    'title' => $config->getWidgetTitle($storeId),
+    'position' => $config->getWidgetPosition($storeId),
+    'themeColor' => $config->getThemeColor($storeId),
+    'welcomeMessage' => $config->getWelcomeMessage($storeId),
+    'starterPrompts' => $config->getStarterPrompts($storeId),
+];
+?>
+<div id="czar-ai-chatbot" data-config='<?= $block->escapeHtmlAttr((string) json_encode($payload)); ?>'></div>

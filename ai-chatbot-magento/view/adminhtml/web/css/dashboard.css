@@ -1,0 +1,17 @@
+.aic-admin { font-family: Arial, sans-serif; color: #17324d; }
+.aic-header { margin-bottom: 20px; }
+.aic-tabs { display: flex; gap: 10px; margin-bottom: 16px; }
+.aic-tabs button { padding: 8px 14px; border: 1px solid #b7cadf; background: #fff; cursor: pointer; }
+.aic-tabs button.active { background: #0f4c81; color: #fff; border-color: #0f4c81; }
+.aic-panel { display: none; }
+.aic-panel.active { display: block; }
+.aic-grid { display: grid; gap: 16px; margin-bottom: 16px; }
+.aic-grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.aic-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.aic-card { background: #fff; border: 1px solid #d7e3ef; padding: 16px; }
+.aic-card strong { display: block; font-size: 24px; margin-top: 8px; }
+.aic-row { display: flex; justify-content: space-between; gap: 16px; padding: 8px 0; border-bottom: 1px solid #eef4fa; }
+.aic-actions { display: flex; gap: 10px; margin-top: 16px; }
+.aic-conversation { display: block; width: 100%; text-align: left; padding: 10px; margin-bottom: 8px; border: 1px solid #d7e3ef; background: #fff; }
+.aic-conversation small { display: block; color: #5f748b; margin-top: 4px; }
+.aic-message { margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #eef4fa; }

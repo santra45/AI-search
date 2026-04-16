@@ -1,0 +1,44 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Store:etc/config.xsd">
+    <default>
+        <ai_chatbot>
+            <general>
+                <enabled>0</enabled>
+                <api_url></api_url>
+                <api_key></api_key>
+                <license_key></license_key>
+                <llm_provider></llm_provider>
+                <llm_model></llm_model>
+                <llm_api_key></llm_api_key>
+                <welcome_message>Hello! Ask me about products, policies, or store help.</welcome_message>
+                <fallback_message>I could not confirm that from this store&apos;s information.</fallback_message>
+            </general>
+            <widget>
+                <show_widget>1</show_widget>
+                <position>right</position>
+                <title>Store Assistant</title>
+                <theme_color>#0f4c81</theme_color>
+                <starter_prompts>Shipping policy|Return window|Top rated products</starter_prompts>
+            </widget>
+            <sync>
+                <auto_sync_enabled>0</auto_sync_enabled>
+                <cron_expression>0 * * * *</cron_expression>
+                <batch_size>20</batch_size>
+                <sync_products>1</sync_products>
+                <sync_cms_pages>1</sync_cms_pages>
+                <sync_cms_blocks>1</sync_cms_blocks>
+                <sync_widgets>1</sync_widgets>
+                <sync_reviews>1</sync_reviews>
+                <sync_policies>1</sync_policies>
+                <sync_faq>1</sync_faq>
+                <sync_store_config>1</sync_store_config>
+                <review_limit>5</review_limit>
+            </sync>
+            <history>
+                <retain_days>30</retain_days>
+                <link_customer_sessions>1</link_customer_sessions>
+            </history>
+        </ai_chatbot>
+    </default>
+</config>

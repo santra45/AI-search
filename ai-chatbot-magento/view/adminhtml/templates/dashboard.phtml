@@ -1,0 +1,72 @@
+<?php /** @var \Czar\AiChatbot\Block\Adminhtml\Dashboard $block */ ?>
+<div class="aic-admin">
+    <script>
+        window.AiChatbotDashboard = <?= /* @noEscape */ $block->getInitialConfigJson(); ?>;
+    </script>
+    <div class="aic-header">
+        <div>
+            <h1>AI Chatbot</h1>
+            <p>Shared vectors, separate chat workflows, and grounded conversation analytics.</p>
+        </div>
+    </div>
+    <div class="aic-tabs">
+        <button class="active" data-tab="dashboard">Dashboard</button>
+        <button data-tab="conversations">Conversations</button>
+        <button data-tab="usage">Usage</button>
+        <button data-tab="sync">Sync</button>
+        <button data-tab="settings">Settings</button>
+    </div>
+    <section class="aic-panel active" data-panel="dashboard">
+        <div class="aic-grid aic-grid-4">
+            <div class="aic-card"><span>Chats Today</span><strong id="aic-chats-today">-</strong></div>
+            <div class="aic-card"><span>Chats This Month</span><strong id="aic-chats-month">-</strong></div>
+            <div class="aic-card"><span>Unresolved</span><strong id="aic-unresolved">-</strong></div>
+            <div class="aic-card"><span>Total Cost</span><strong id="aic-total-cost">-</strong></div>
+        </div>
+        <div class="aic-card">
+            <h2>Content Counts</h2>
+            <div id="aic-content-counts"></div>
+        </div>
+    </section>
+    <section class="aic-panel" data-panel="conversations">
+        <div class="aic-grid aic-grid-2">
+            <div class="aic-card">
+                <h2>Recent Conversations</h2>
+                <div id="aic-conversation-list"></div>
+            </div>
+            <div class="aic-card">
+                <h2>Transcript</h2>
+                <div id="aic-conversation-history"></div>
+            </div>
+        </div>
+    </section>
+    <section class="aic-panel" data-panel="usage">
+        <div class="aic-card">
+            <h2>Usage Summary</h2>
+            <div id="aic-usage-summary"></div>
+        </div>
+        <div class="aic-card">
+            <h2>Model Breakdown</h2>
+            <div id="aic-usage-models"></div>
+        </div>
+    </section>
+    <section class="aic-panel" data-panel="sync">
+        <div class="aic-card">
+            <h2>Sync Status</h2>
+            <div id="aic-sync-status"></div>
+            <div class="aic-actions">
+                <button type="button" class="action-primary" id="aic-start-sync">Start Full Sync</button>
+                <button type="button" id="aic-next-batch">Process Next Batch</button>
+                <button type="button" id="aic-cancel-sync">Cancel</button>
+                <button type="button" id="aic-reset-sync">Reset</button>
+            </div>
+            <div id="aic-sync-feedback" class="aic-feedback"></div>
+        </div>
+    </section>
+    <section class="aic-panel" data-panel="settings">
+        <div class="aic-card">
+            <h2>Current Configuration</h2>
+            <div id="aic-settings-summary"></div>
+        </div>
+    </section>
+</div>

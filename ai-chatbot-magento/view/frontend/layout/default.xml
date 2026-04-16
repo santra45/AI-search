@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<page xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:noNamespaceSchemaLocation="urn:magento:framework:View/Layout/etc/page_configuration.xsd">
+    <head>
+        <css src="Czar_AiChatbot::css/widget.css"/>
+        <script src="Czar_AiChatbot::js/widget.js"/>
+    </head>
+    <body>
+        <referenceContainer name="before.body.end">
+            <block class="Magento\Framework\View\Element\Template"
+                   name="czar.aichatbot.widget"
+                   template="Czar_AiChatbot::widget.phtml"/>
+        </referenceContainer>
+    </body>
+</page>

@@ -25,6 +25,7 @@ class SearchRequest(BaseModel):
     llm_provider: str = None
     llm_model: str = None
     llm_api_key_encrypted: str = None
+    content_types: list = None  # None = all types, ['product'], ['page'], ['post'], or ['product', 'page', 'post']
 
 
 @router.post("/search")
@@ -136,6 +137,7 @@ async def search(req: SearchRequest, request: Request, db: Session = Depends(get
         min_price=min_price,
         max_price=max_price,
         only_in_stock=only_in_stock,
+        content_types=req.content_types,
     )
 
     # Step 5b — keyword post-filter & re-rank

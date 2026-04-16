@@ -237,7 +237,7 @@
                 return;
             }
 
-            // Aggregate hourly → daily
+            // Convert hourly → daily
             let dailyData = this.aggregateHourlyToDaily(hourly);
 
             if (!dailyData.length) {
@@ -245,30 +245,44 @@
                 return;
             }
 
-            // Remove outliers (important before calculations)
+            // Remove outliers
             dailyData = this.removeOutliers(dailyData, 'cost');
 
             const now = new Date();
             const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
 
+            // 🔥 Helper: sum
+            const sum = (data, key) => {
+                return data.reduce((acc, item) => acc + (item[key] || 0), 0);
+            };
+
+            // 🔥 Last periods
+            const last1 = dailyData.slice(0, 1);
+            const last3 = dailyData.slice(0, 3);
+            const last7 = dailyData.slice(0, 7);
+
             const estimates = [
                 {
                     period: 'Last 24h (Actual)',
-                    requests: dailyData[0]?.requests || 0,
-                    cost: dailyData[0]?.cost || 0
+                    days: 1,
+                    requests: sum(last1, 'requests'),
+                    cost: sum(last1, 'cost')
                 },
                 {
-                    period: '3-Day Weighted Avg',
-                    requests: this.calculateWeightedAverage(dailyData.slice(0, 3), 'requests'),
-                    cost: this.calculateWeightedAverage(dailyData.slice(0, 3), 'cost')
+                    period: 'Last 3 Days (Total)',
+                    days: 3,
+                    requests: sum(last3, 'requests'),
+                    cost: sum(last3, 'cost')
                 },
                 {
-                    period: '7-Day Weighted Avg',
-                    requests: this.calculateWeightedAverage(dailyData.slice(0, 7), 'requests'),
-                    cost: this.calculateWeightedAverage(dailyData.slice(0, 7), 'cost')
+                    period: 'Last 7 Days (Total)',
+                    days: 7,
+                    requests: sum(last7, 'requests'),
+                    cost: sum(last7, 'cost')
                 },
                 {
                     period: 'Trend Adjusted',
+                    days: 1,
                     requests: this.calculateProjectedMonthlyRequests(dailyData) / daysInMonth,
                     cost: this.calculateProjectedMonthlyCost(dailyData) / daysInMonth
                 }
@@ -277,14 +291,19 @@
             const confidence = dailyData.length >= 7 ? 'High' : 'Low';
 
             estimates.forEach((estimate) => {
-                const monthlyCost = estimate.cost * daysInMonth;
-                const trend = this.getTrendIndicator(dailyData, estimate.cost);
+                // 🔥 Normalize to daily average
+                const dailyAvgRequests = estimate.requests / estimate.days;
+                const dailyAvgCost = estimate.cost / estimate.days;
+
+                const monthlyCost = dailyAvgCost * daysInMonth;
+
+                const trend = this.getTrendIndicator(dailyData, dailyAvgCost);
 
                 $tbody.append(`
                     <tr>
                         <td><strong>${this.escHtml(estimate.period)}</strong></td>
-                        <td>${this.formatNumber(Math.round(estimate.requests || 0))}</td>
-                        <td>$${Number(estimate.cost || 0).toFixed(6)}</td>
+                        <td>${this.formatNumber(Math.round(dailyAvgRequests || 0))}</td>
+                        <td>$${Number(dailyAvgCost || 0).toFixed(6)}</td>
                         <td><strong>$${Number(monthlyCost || 0).toFixed(4)}</strong></td>
                         <td>${trend} (${confidence})</td>
                     </tr>
@@ -323,27 +342,51 @@
         },
 
         calculateTrendSlope(data, key) {
-            if (data.length < 2) return 0;
+            const n = data.length;
+            if (n < 2) return 0;
 
-            let sumDiff = 0;
+            let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
 
-            for (let i = 1; i < data.length; i++) {
-                sumDiff += (data[i - 1][key] - data[i][key]);
+            for (let i = 0; i < n; i++) {
+                const x = i;
+                const y = data[i][key] || 0;
+
+                sumX += x;
+                sumY += y;
+                sumXY += x * y;
+                sumXX += x * x;
             }
 
-            return sumDiff / (data.length - 1);
+            const numerator = (n * sumXY) - (sumX * sumY);
+            const denominator = (n * sumXX) - (sumX * sumX);
+
+            if (denominator === 0) return 0;
+
+            let slope = numerator / denominator;
+
+            // 🔥 Noise filter (ignore tiny fluctuations)
+            if (Math.abs(slope) < 0.01) slope = 0;
+
+            return slope;
         },
 
         calculateProjectedMonthlyCost(dailyData) {
             if (!dailyData.length) return 0;
 
             const slope = this.calculateTrendSlope(dailyData, 'cost');
-            let current = dailyData[0]?.cost || 0;
+
+            // 🔥 Better baseline (NOT just today)
+            const recent = dailyData.slice(0, 3);
+            const avg =
+                recent.reduce((acc, d) => acc + (d.cost || 0), 0) /
+                (recent.length || 1);
+
+            let current = avg;
             let total = 0;
 
             for (let i = 0; i < 30; i++) {
-                current += slope;
-                total += Math.max(current, 0);
+                const projected = current + (slope * i);
+                total += Math.max(projected, 0);
             }
 
             return total;
@@ -353,22 +396,28 @@
             if (!dailyData.length) return 0;
 
             const slope = this.calculateTrendSlope(dailyData, 'requests');
-            let current = dailyData[0]?.requests || 0;
+
+            const recent = dailyData.slice(0, 3);
+            const avg =
+                recent.reduce((acc, d) => acc + (d.requests || 0), 0) /
+                (recent.length || 1);
+
+            let current = avg;
             let total = 0;
 
             for (let i = 0; i < 30; i++) {
-                current += slope;
-                total += Math.max(current, 0);
+                const projected = current + (slope * i);
+                total += Math.max(projected, 0);
             }
 
             return total;
         },
 
-        getTrendIndicator(data, currentCost) {
+        getTrendIndicator(data, currentDailyCost) {
             const slope = this.calculateTrendSlope(data, 'cost');
 
-            if (slope > 0.001) return '📈 Increasing';
-            if (slope < -0.001) return '📉 Decreasing';
+            if (slope > 0.01) return '📈 Increasing';
+            if (slope < -0.01) return '📉 Decreasing';
             return '➡️ Stable';
         },
 

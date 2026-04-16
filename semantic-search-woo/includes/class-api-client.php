@@ -23,11 +23,8 @@ class SSW_API_Client {
         $llm_provider = get_option('ssw_llm_provider', '');
         $llm_model = get_option('ssw_llm_model', '');
         $encrypted_key = get_option('ssw_llm_api_key', '');
-        if ($llm_provider && $llm_model && $encrypted_key) {
-            $payload['llm_provider'] = $llm_provider;
-            $payload['llm_model'] = $llm_model;
-            $payload['llm_api_key_encrypted'] = $encrypted_key;
-        }
+        $sync_pages = get_option('ssw_sync_pages', 0);
+        $sync_posts = get_option('ssw_sync_posts', 0);
         
         $payload = [
             'license_key' => $this->license_key,
@@ -46,6 +43,16 @@ class SSW_API_Client {
             $payload['llm_model'] = $llm_model;
             $payload['llm_api_key_encrypted'] = $encrypted_key;
         }
+        
+        // Build content_types array based on sync settings
+        $content_types = ['product']; // Always include products
+        if ($sync_pages) {
+            $content_types[] = 'page';
+        }
+        if ($sync_posts) {
+            $content_types[] = 'post';
+        }
+        $payload['content_types'] = $content_types;
         
         $response = wp_remote_post($this->api_url . '/api/search', [
             'timeout' => 10,      // 10 seconds max — fallback if slow
@@ -72,9 +79,82 @@ class SSW_API_Client {
         }
 
         // Return only the WooCommerce product IDs in ranked order
+        // Filter results to only include products for backward compatibility
+        $product_results = array_filter($body['results'], fn($r) => ($r['content_type'] ?? 'product') === 'product');
         return array_map(
             fn($r) => (int) $r['product_id'],
-            $body['results']
+            $product_results
         );
+    }
+
+    /**
+     * Search all content types (products, pages, posts) via your FastAPI.
+     * Returns full results array with content_type field.
+     */
+    public function search_all(string $query): array {
+        $enable_intent = get_option('ssw_enable_intent', 0);
+        $llm_provider = get_option('ssw_llm_provider', '');
+        $llm_model = get_option('ssw_llm_model', '');
+        $encrypted_key = get_option('ssw_llm_api_key', '');
+        if ($llm_provider && $llm_model && $encrypted_key) {
+            $payload['llm_provider'] = $llm_provider;
+            $payload['llm_model'] = $llm_model;
+            $payload['llm_api_key_encrypted'] = $encrypted_key;
+        }
+        $sync_pages = get_option('ssw_sync_pages', 0);
+        $sync_posts = get_option('ssw_sync_posts', 0);
+        
+        $payload = [
+            'license_key' => $this->license_key,
+            'query'     => $query,
+            'limit'     => $this->limit
+        ];
+        
+        // Only include intent setting if enabled
+        if ($enable_intent) {
+            $payload['enable_intent'] = true;
+        }
+        
+        // Include LLM configuration if set
+        if ($llm_provider && $llm_model && $encrypted_key) {
+            $payload['llm_provider'] = $llm_provider;
+            $payload['llm_model'] = $llm_model;
+            $payload['llm_api_key_encrypted'] = $encrypted_key;
+        }
+        
+        // Build content_types array based on sync settings
+        $content_types = ['product']; // Always include products
+        if ($sync_pages) {
+            $content_types[] = 'page';
+        }
+        if ($sync_posts) {
+            $content_types[] = 'post';
+        }
+        $payload['content_types'] = $content_types;
+        
+        $response = wp_remote_post($this->api_url . '/api/search', [
+            'timeout' => 10,
+            'headers' => ['Content-Type' => 'application/json'],
+            'body'    => json_encode($payload)
+        ]);
+
+        if (is_wp_error($response)) {
+            error_log('[SSW] API error: ' . $response->get_error_message());
+            return [];
+        }
+
+        $code = wp_remote_retrieve_response_code($response);
+        if ($code !== 200) {
+            error_log('[SSW] API returned HTTP ' . $code);
+            return [];
+        }
+
+        $body = json_decode(wp_remote_retrieve_body($response), true);
+
+        if (empty($body['results'])) {
+            return [];
+        }
+
+        return $body['results'];
     }
 }

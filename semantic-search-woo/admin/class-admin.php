@@ -451,6 +451,8 @@ class SSW_Admin {
         $llm_provider = sanitize_text_field($_POST['llm_provider'] ?? '');
         $llm_model    = sanitize_text_field($_POST['llm_model']    ?? '');
         $llm_api_key  = sanitize_text_field($_POST['llm_api_key'] ?? '');
+        $sync_pages   = (isset($_POST['sync_pages']) && (int)$_POST['sync_pages'] === 1) ? 1 : 0;
+        $sync_posts   = (isset($_POST['sync_posts']) && (int)$_POST['sync_posts'] === 1) ? 1 : 0;
         $existing     = get_option('ssw_llm_api_key', '');
         $final = null;
         
@@ -482,6 +484,8 @@ class SSW_Admin {
         update_option('ssw_api_url',      rtrim($api_url, '/'));
         update_option('ssw_result_limit', max(1, min(50, $result_limit)));
         update_option('ssw_enable_intent', $enable_intent);
+        update_option('ssw_sync_pages', $sync_pages);
+        update_option('ssw_sync_posts', $sync_posts);
 
         // Save LLM settings
         update_option('ssw_llm_provider', $llm_provider);

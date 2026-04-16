@@ -34,6 +34,8 @@ function ssw_activate(): void {
     if (!get_option('ssw_api_url')) {
         update_option('ssw_api_url',      'http://127.0.0.1:8000');
         update_option('ssw_result_limit', 10);
+        update_option('ssw_sync_pages', 0);  // Default: don't sync pages
+        update_option('ssw_sync_posts', 0);  // Default: don't sync posts
     }
 
     // Generate webhook secret if not set
@@ -498,25 +500,125 @@ function ssw_frontend_search_endpoint(WP_REST_Request $request): WP_REST_Respons
         // Try semantic search first if API is configured
         $api_url = get_option('ssw_api_url', '');
         $license_key = get_option('ssw_license_key', '');
+        $sync_pages = get_option('ssw_sync_pages', 0);
+        $sync_posts = get_option('ssw_sync_posts', 0);
         
         if (!empty($api_url) && !empty($license_key)) {
             $api_client = new SSW_API_Client($api_url, $license_key, $limit);
-            $product_ids = $api_client->search($query);
             
-            if (!empty($product_ids)) {
-                $products = ssw_get_products_by_ids($product_ids, $limit, $page, []);
-                $search_time = round(microtime(true) - $start_time, 3);
+            // Use search_all to get mixed results if pages/posts are enabled
+            if ($sync_pages || $sync_posts) {
+                $results = $api_client->search_all($query);
                 
-                return new WP_REST_Response([
-                    'success' => true,
-                    'data' => [
-                        'products' => $products,
-                        'total' => count($product_ids),
-                        'total_pages' => ceil(count($product_ids) / $limit),
-                        'current_page' => $page,
-                        'search_time' => $search_time
-                    ]
-                ], 200);
+                if (!empty($results)) {
+                    $formatted_results = [];
+                    $product_ids = [];
+                    $page_ids = [];
+                    $post_ids = [];
+                    
+                    // Separate results by content type
+                    foreach ($results as $result) {
+                        $content_type = $result['content_type'] ?? 'product';
+                        if ($content_type === 'product') {
+                            $product_ids[] = (int) $result['product_id'];
+                            $formatted_results[] = [
+                                'content_type' => 'product',
+                                'id' => (int) $result['product_id'],
+                                'name' => $result['name'] ?? '',
+                                'price' => $result['price'] ?? 0,
+                                'permalink' => $result['permalink'] ?? '',
+                                'image_url' => $result['image_url'] ?? '',
+                                'stock_status' => $result['stock_status'] ?? '',
+                                'categories' => $result['categories'] ?? '',
+                                'score' => $result['score'] ?? 0
+                            ];
+                        } elseif ($content_type === 'page') {
+                            $page_ids[] = (int) $result['page_id'];
+                            $formatted_results[] = [
+                                'content_type' => 'page',
+                                'id' => (int) $result['page_id'],
+                                'title' => $result['title'] ?? '',
+                                'excerpt' => $result['excerpt'] ?? '',
+                                'permalink' => $result['permalink'] ?? '',
+                                'author' => $result['author'] ?? '',
+                                'date' => $result['date'] ?? '',
+                                'score' => $result['score'] ?? 0
+                            ];
+                        } elseif ($content_type === 'post') {
+                            $post_ids[] = (int) $result['post_id'];
+                            $formatted_results[] = [
+                                'content_type' => 'post',
+                                'id' => (int) $result['post_id'],
+                                'title' => $result['title'] ?? '',
+                                'excerpt' => $result['excerpt'] ?? '',
+                                'permalink' => $result['permalink'] ?? '',
+                                'author' => $result['author'] ?? '',
+                                'date' => $result['date'] ?? '',
+                                'categories' => $result['categories'] ?? '',
+                                'tags' => $result['tags'] ?? '',
+                                'score' => $result['score'] ?? 0
+                            ];
+                        }
+                    }
+                    
+                    // Get full product details for products
+                    $products = [];
+                    if (!empty($product_ids)) {
+                        $products = ssw_get_products_by_ids($product_ids, $limit, $page, []);
+                    }
+                    
+                    // Merge full product details with formatted results
+                    $final_results = [];
+                    $product_map = [];
+                    foreach ($products as $product) {
+                        $product_map[$product['id']] = $product;
+                    }
+                    
+                    foreach ($formatted_results as $result) {
+                        if ($result['content_type'] === 'product' && isset($product_map[$result['id']])) {
+                            $final_results[] = array_merge($result, $product_map[$result['id']]);
+                        } else {
+                            $final_results[] = $result;
+                        }
+                    }
+                    
+                    $search_time = round(microtime(true) - $start_time, 3);
+                    
+                    return new WP_REST_Response([
+                        'success' => true,
+                        'data' => [
+                            'results' => $final_results,
+                            'total' => count($final_results),
+                            'total_pages' => 1,
+                            'current_page' => $page,
+                            'search_time' => $search_time
+                        ]
+                    ], 200);
+                }
+            } else {
+                // Product-only search
+                $product_ids = $api_client->search($query);
+                
+                if (!empty($product_ids)) {
+                    $products = ssw_get_products_by_ids($product_ids, $limit, $page, []);
+                    $search_time = round(microtime(true) - $start_time, 3);
+                    
+                    // Add content_type to products
+                    foreach ($products as &$product) {
+                        $product['content_type'] = 'product';
+                    }
+                    
+                    return new WP_REST_Response([
+                        'success' => true,
+                        'data' => [
+                            'results' => $products,
+                            'total' => count($products),
+                            'total_pages' => ceil(count($products) / $limit),
+                            'current_page' => $page,
+                            'search_time' => $search_time
+                        ]
+                    ], 200);
+                }
             }
         }
         
@@ -525,10 +627,15 @@ function ssw_frontend_search_endpoint(WP_REST_Request $request): WP_REST_Respons
         $products = ssw_keyword_search($keywords, $query, $limit, $page);
         $search_time = round(microtime(true) - $start_time, 3);
         
+        // Add content_type to products
+        foreach ($products as &$product) {
+            $product['content_type'] = 'product';
+        }
+        
         return new WP_REST_Response([
             'success' => true,
             'data' => [
-                'products' => $products,
+                'results' => $products,
                 'total' => count($products),
                 'total_pages' => ceil(count($products) / $limit),
                 'current_page' => $page,
@@ -543,7 +650,7 @@ function ssw_frontend_search_endpoint(WP_REST_Request $request): WP_REST_Respons
             'success' => false,
             'error' => 'Search failed',
             'data' => [
-                'products' => [],
+                'results' => [],
                 'total' => 0,
                 'total_pages' => 0,
                 'current_page' => $page

@@ -25,6 +25,9 @@ $options = [
     'ssw_llm_model',
     'ssw_llm_api_key',
     'ssw_setup_completed',
+    'ssw_sync_pages',
+    'ssw_sync_posts',
+    'ssw_sync_content_type',
 
 ];
 
